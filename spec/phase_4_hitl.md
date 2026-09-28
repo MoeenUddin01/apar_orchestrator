@@ -5,9 +5,9 @@ Integrate Human-in-the-Loop (HITL) functionality into both AP and AR workflows u
 
 ## 2. Architecture & Design
 - **LangGraph Checkpointer**: Integrate `MemorySaver` (for dev) or Postgres checkpointing (for prod) into the LangGraph compilation step.
-- **`src/apar_orchestrator/finance/routing.py`**: Python rules defining thresholds (e.g., `amount > $10,000` requires approval, or `tolerance_exceeded == True`).
-- **`src/apar_orchestrator/api/routes/`**: Implement resume endpoints (e.g., `POST /ap/{thread_id}/approve` or `POST /ap/{thread_id}/reject`).
-- **`src/apar_orchestrator/graph/`**: Add interrupt nodes (`interrupt_before=["human_review_node"]`).
+- **`src/finance/routing.py`**: Python rules defining thresholds (e.g., `amount > $10,000` requires approval, or `tolerance_exceeded == True`).
+- **`src/api/routes/`**: Implement resume endpoints (e.g., `POST /ap/{thread_id}/approve` or `POST /ap/{thread_id}/reject`).
+- **`src/graph/`**: Add interrupt nodes (`interrupt_before=["human_review_node"]`).
 
 ## 3. Technical Task List
 - [ ] Setup a Postgres-backed or in-memory Checkpointer for the compiled AP and AR LangGraphs.

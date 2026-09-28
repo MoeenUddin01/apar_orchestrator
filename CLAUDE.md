@@ -14,7 +14,7 @@ AP/AR Orchestrator automates Accounts Payable (AP) and Accounts Receivable (AR) 
 
 ## 3. Architecture & Code Organization
 ```text
-src/apar_orchestrator/
+src/
 ├── api/       # FastAPI routes, HTTP validation (NO business logic)
 ├── core/      # Config, environment, logging, exceptions
 ├── domain/    # Schemas and models (ap, ar, common)

@@ -4,11 +4,11 @@
 Implement the core Accounts Payable (AP) workflow using LangGraph. The workflow will intake invoices, use an LLM exclusively to extract structured data, and then rely entirely on deterministic Python logic for validation, database lookups, 3-way matching, and routing.
 
 ## 2. Architecture & Design
-- **`src/apar_orchestrator/api/routes/ap.py`**: Webhook or endpoint for receiving invoices.
-- **`src/apar_orchestrator/llm/extractors/`**: Prompt and LLM invocation strictly scoped to mapping unstructured text/PDFs into a Pydantic `Invoice` model.
-- **`src/apar_orchestrator/database/repositories/`**: Python functions to fetch Purchase Orders and Goods Receipts from Postgres.
-- **`src/apar_orchestrator/finance/matching.py`**: Pure Python logic executing the deterministic 3-way match (comparing PO, Receipt, and Invoice quantities/totals).
-- **`src/apar_orchestrator/graph/ap/`**: LangGraph definitions (`graph.py`, `nodes.py`) linking these stages.
+- **`src/api/routes/ap.py`**: Webhook or endpoint for receiving invoices.
+- **`src/llm/extractors/`**: Prompt and LLM invocation strictly scoped to mapping unstructured text/PDFs into a Pydantic `Invoice` model.
+- **`src/database/repositories/`**: Python functions to fetch Purchase Orders and Goods Receipts from Postgres.
+- **`src/finance/matching.py`**: Pure Python logic executing the deterministic 3-way match (comparing PO, Receipt, and Invoice quantities/totals).
+- **`src/graph/ap/`**: LangGraph definitions (`graph.py`, `nodes.py`) linking these stages.
 
 ## 3. Technical Task List
 - [ ] Define the AP Invoice HTTP endpoint.

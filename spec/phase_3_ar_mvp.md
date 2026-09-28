@@ -4,11 +4,11 @@
 Implement the core Accounts Receivable (AR) workflow. This phase handles incoming payments/remittances by classifying the payment text via LLM, fetching existing invoices from the database, reconciling the payment using deterministic math, and calculating aging/overdue states.
 
 ## 2. Architecture & Design
-- **`src/apar_orchestrator/api/routes/ar.py`**: Webhook or endpoint for receiving payments or remittance advices.
-- **`src/apar_orchestrator/llm/extractors/`**: LLM prompts restricted to extracting customer names, invoice references, and payment amounts from unstructured remittance emails/notes.
-- **`src/apar_orchestrator/finance/aging.py`**: Pure Python functions that calculate days overdue based on invoice due dates and current dates.
-- **`src/apar_orchestrator/finance/matching.py`**: Python reconciliation logic to apply payment amounts to outstanding invoice balances.
-- **`src/apar_orchestrator/graph/ar/`**: LangGraph definitions linking the AR pipeline.
+- **`src/api/routes/ar.py`**: Webhook or endpoint for receiving payments or remittance advices.
+- **`src/llm/extractors/`**: LLM prompts restricted to extracting customer names, invoice references, and payment amounts from unstructured remittance emails/notes.
+- **`src/finance/aging.py`**: Pure Python functions that calculate days overdue based on invoice due dates and current dates.
+- **`src/finance/matching.py`**: Python reconciliation logic to apply payment amounts to outstanding invoice balances.
+- **`src/graph/ar/`**: LangGraph definitions linking the AR pipeline.
 
 ## 3. Technical Task List
 - [ ] Define the AR Payment HTTP endpoint.

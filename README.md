@@ -25,7 +25,7 @@ The central design principle is strict separation of concerns:
 ## 3. Project Structure
 
 ```text
-src/apar_orchestrator/
+src/
 ├── api/       # FastAPI endpoints and HTTP validation
 ├── core/      # Config, environment, and logging
 ├── domain/    # Shared financial domain schemas

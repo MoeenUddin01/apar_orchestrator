@@ -4,8 +4,8 @@
 Introduce LLM-powered natural language generation to draft outward-facing communications. The LLM will draft vendor discrepancy emails or customer overdue reminders based strictly on the deterministic financial facts already computed and stored in the `FinanceState`.
 
 ## 2. Architecture & Design
-- **`src/apar_orchestrator/llm/generators/`**: LLM prompts designed to take rigid JSON/Pydantic payloads of financial facts and convert them into polite, professional emails.
-- **`src/apar_orchestrator/graph/ap/nodes.py` & `graph/ar/nodes.py`**: Add nodes for `generate_discrepancy_notice` and `generate_overdue_reminder`.
+- **`src/llm/generators/`**: LLM prompts designed to take rigid JSON/Pydantic payloads of financial facts and convert them into polite, professional emails.
+- **`src/graph/ap/nodes.py` & `graph/ar/nodes.py`**: Add nodes for `generate_discrepancy_notice` and `generate_overdue_reminder`.
 - **Constraint Enforcement**: The LLM prompt must strictly forbid inventing dates, amounts, or policies not provided in the prompt context.
 
 ## 3. Technical Task List

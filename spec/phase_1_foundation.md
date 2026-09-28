@@ -5,10 +5,10 @@ Establish the core infrastructure and technical foundation of the AP/AR Orchestr
 
 ## 2. Architecture & Design
 - **`pyproject.toml`**: Configure `uv` as the package manager and define standard dependencies (FastAPI, SQLAlchemy/asyncpg, LangGraph, Pydantic, etc.).
-- **`src/apar_orchestrator/core/`**: Implement structured logging, environment configuration mapping (`.env`), and base application exceptions.
-- **`src/apar_orchestrator/api/`**: Setup FastAPI entry point (`main.py`) with a base `/health` check.
-- **`src/apar_orchestrator/database/`**: Implement the PostgreSQL async engine and base session dependency.
-- **`src/apar_orchestrator/graph/state.py`**: Define `FinanceState`, a TypedDict or Pydantic model representing the shared state required for all financial LangGraph executions.
+- **`src/core/`**: Implement structured logging, environment configuration mapping (`.env`), and base application exceptions.
+- **`src/api/`**: Setup FastAPI entry point (`main.py`) with a base `/health` check.
+- **`src/database/`**: Implement the PostgreSQL async engine and base session dependency.
+- **`src/graph/state.py`**: Define `FinanceState`, a TypedDict or Pydantic model representing the shared state required for all financial LangGraph executions.
 
 ## 3. Technical Task List
 - [ ] Initialize the project environment using `uv init`.
