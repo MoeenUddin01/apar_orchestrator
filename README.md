@@ -62,7 +62,7 @@ spec/          # Phase-by-phase development specifications
 
 3. **Run Application:**
    ```bash
-   uv run uvicorn apar_orchestrator.api.main:app --reload
+   uv run uvicorn api.main:app --app-dir src --reload
    ```
 
 4. **Run Tests:**
