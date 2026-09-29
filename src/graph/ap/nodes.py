@@ -5,6 +5,7 @@ from src.domain.ap.models import ExtractedInvoice
 from src.finance.matching import perform_3_way_match
 from src.graph.state import FinanceState
 from src.llm.extractors.invoice_extractor import extract_invoice_from_raw_document
+from src.finance.routing import evaluate_hitl_rules
 
 
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
@@ -55,7 +56,6 @@ async def lookup_db_node(state: FinanceState) -> Dict[str, Any]:
         "financial_facts": facts,
     }
 
-
 def match_3_way_node(state: FinanceState) -> Dict[str, Any]:
     """Node 4: Execute deterministic 3-way match in Python."""
     logger.info(f"AP Graph [match_3_way]: Running deterministic 3-way match math.")
@@ -75,18 +75,42 @@ def match_3_way_node(state: FinanceState) -> Dict[str, Any]:
     updated_facts = dict(facts)
     updated_facts["match_result"] = match_result.model_dump()
 
-    routing = "APPROVE" if match_result.is_match else "EXCEPTION"
+    hitl_decision = evaluate_hitl_rules(
+        amount=invoice.invoice_total,
+        tolerance_exceeded=not match_result.is_match,
+        missing_docs=(po is None or goods_receipt is None)
+    )
+
+    if hitl_decision.requires_hitl:
+        routing = "HITL"
+        status = "REQUIRES_APPROVAL"
+    else:
+        routing = "APPROVE" if match_result.is_match else "EXCEPTION"
+        status = "COMPLETED" if match_result.is_match else "REQUIRES_APPROVAL"
 
     return {
         "financial_facts": updated_facts,
         "routing_decision": routing,
-        "status": "COMPLETED" if match_result.is_match else "REQUIRES_APPROVAL",
+        "hitl_decision": hitl_decision.model_dump(),
+        "status": status,
     }
 
+def human_review_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 5: Applies the human API input to finalize the routing decision."""
+    logger.info(f"AP Graph [human_review]: Applying human decision from API.")
+    hitl_input = state.get("hitl_input") or {}
+    action = hitl_input.get("action", "REJECT")
+    
+    return {
+        "routing_decision": "APPROVE" if action == "APPROVE" else "EXCEPTION",
+        "status": "COMPLETED" if action == "APPROVE" else "ERROR",
+    }
 
 def route_ap_decision(state: FinanceState) -> str:
-    """Conditional edge router: returns 'approve' or 'exception'."""
+    """Conditional edge router: returns 'approve', 'exception', or 'hitl'."""
     decision = state.get("routing_decision")
+    if decision == "HITL":
+        return "hitl"
     if decision == "APPROVE":
         return "approve"
     return "exception"

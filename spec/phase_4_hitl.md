@@ -10,12 +10,12 @@ Integrate Human-in-the-Loop (HITL) functionality into both AP and AR workflows u
 - **`src/graph/`**: Add interrupt nodes (`interrupt_before=["human_review_node"]`).
 
 ## 3. Technical Task List
-- [ ] Setup a Postgres-backed or in-memory Checkpointer for the compiled AP and AR LangGraphs.
-- [ ] Write deterministic rules in `finance/routing.py` to identify states requiring human review (Exceptions, Disputes, High-Value).
-- [ ] Configure LangGraph to pause execution when the routing decision targets a `human_review` node.
-- [ ] Expose an API endpoint to retrieve the current pending state of a paused workflow.
-- [ ] Expose API endpoints to inject human input (Approve, Reject, Override) into the paused state.
-- [ ] Update the LangGraph workflows to resume execution seamlessly upon receiving the API human input.
+- [x] Setup a Postgres-backed or in-memory Checkpointer for the compiled AP and AR LangGraphs.
+- [x] Write deterministic rules in `finance/routing.py` to identify states requiring human review (Exceptions, Disputes, High-Value).
+- [x] Configure LangGraph to pause execution when the routing decision targets a `human_review` node.
+- [x] Expose an API endpoint to retrieve the current pending state of a paused workflow.
+- [x] Expose API endpoints to inject human input (Approve, Reject, Override) into the paused state.
+- [x] Update the LangGraph workflows to resume execution seamlessly upon receiving the API human input.
 
 ## 4. Input/Output Requirements
 **Routing Output (Python boundary)**:

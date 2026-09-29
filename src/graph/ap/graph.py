@@ -1,10 +1,12 @@
 from langgraph.graph import END, START, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
 from src.graph.ap.nodes import (
     extract_invoice_node,
     lookup_db_node,
     match_3_way_node,
     route_ap_decision,
     validate_invoice_node,
+    human_review_node,
 )
 from src.graph.state import FinanceState
 
@@ -18,6 +20,7 @@ def build_ap_graph():
     builder.add_node("validate_invoice", validate_invoice_node)
     builder.add_node("lookup_db", lookup_db_node)
     builder.add_node("match_3_way", match_3_way_node)
+    builder.add_node("human_review", human_review_node)
 
     # Add edges
     builder.add_edge(START, "extract_invoice")
@@ -32,10 +35,15 @@ def build_ap_graph():
         {
             "approve": END,
             "exception": END,
+            "hitl": "human_review",
         },
     )
+    
+    # Path from human review to END
+    builder.add_edge("human_review", END)
 
-    return builder.compile()
+    memory = MemorySaver()
+    return builder.compile(checkpointer=memory, interrupt_before=["human_review"])
 
 
 ap_graph = build_ap_graph()
