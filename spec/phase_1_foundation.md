@@ -11,14 +11,14 @@ Establish the core infrastructure and technical foundation of the AP/AR Orchestr
 - **`src/graph/state.py`**: Define `FinanceState`, a TypedDict or Pydantic model representing the shared state required for all financial LangGraph executions.
 
 ## 3. Technical Task List
-- [ ] Initialize the project environment using `uv init`.
-- [ ] Install FastAPI, Uvicorn, SQLAlchemy, LangGraph, and their dependencies.
-- [ ] Implement `core.config.py` using `pydantic-settings` to load `.env`.
-- [ ] Configure standard Python `logging` for JSON/structured log output in `core.logging.py`.
-- [ ] Implement database connection handling and engine creation in `database.connection.py`.
-- [ ] Build the FastAPI shell in `api.main.py` and register `api.routes.health.py`.
-- [ ] Define the base `FinanceState` schema in `graph.state.py`.
-- [ ] Setup initial Pytest configuration and write a test for the health endpoint.
+- [x] Initialize the project environment using `uv init`.
+- [x] Install FastAPI, Uvicorn, SQLAlchemy, LangGraph, and their dependencies.
+- [x] Implement `core.config.py` using `pydantic-settings` to load `.env`.
+- [x] Configure standard Python `logging` for JSON/structured log output in `core.logging.py`.
+- [x] Implement database connection handling and engine creation in `database.connection.py`.
+- [x] Build the FastAPI shell in `api.main.py` and register `api.routes.health.py`.
+- [x] Define the base `FinanceState` schema in `graph.state.py`.
+- [x] Setup initial Pytest configuration and write a test for the health endpoint.
 
 ## 4. Input/Output Requirements
 **FinanceState Base Schema (`graph/state.py`)**:
