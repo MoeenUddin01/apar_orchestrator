@@ -1,0 +1,87 @@
+from typing import Any, Dict
+from src.core.logging import logger
+from src.database.repositories.ar_repository import ar_repository
+from src.domain.ar.models import CustomerInvoice, ExtractedRemittance
+from src.finance.matching import reconcile_ar_payment
+from src.graph.state import FinanceState
+from src.llm.extractors.remittance_extractor import extract_remittance_from_raw_document
+
+
+def extract_remittance_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 1: Extract structured remittance info from raw document using LLM boundary."""
+    logger.info(f"AR Graph [extract_remittance]: Processing workflow {state.get('workflow_id')}")
+    raw_doc = state.get("raw_document") or ""
+    extracted = extract_remittance_from_raw_document(raw_doc)
+
+    return {
+        "status": "PROCESSING",
+        "extracted_data": extracted.model_dump(),
+    }
+
+
+async def lookup_invoices_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 2: Retrieve customer unpaid invoices from PostgreSQL."""
+    logger.info("AR Graph [lookup_invoices]: Fetching customer unpaid invoices.")
+    data = state.get("extracted_data") or {}
+    cust_id = data.get("customer_identifier", "")
+
+    invoices = await ar_repository.get_customer_invoices(cust_id)
+
+    facts = dict(state.get("financial_facts") or {})
+    facts["invoices"] = [inv.model_dump() for inv in invoices]
+
+    return {
+        "financial_facts": facts,
+    }
+
+
+def reconcile_payment_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 3: Reconcile payment against invoices using pure Python math."""
+    logger.info("AR Graph [reconcile_payment]: Performing deterministic payment application.")
+    data = state.get("extracted_data") or {}
+    facts = state.get("financial_facts") or {}
+
+    remittance = ExtractedRemittance(**data)
+    invoices = [CustomerInvoice(**inv) for inv in facts.get("invoices", [])]
+
+    result = reconcile_ar_payment(remittance, invoices)
+
+    updated_facts = dict(facts)
+    updated_facts["reconciliation_result"] = result.model_dump()
+
+    # Determine routing
+    if result.is_fully_paid:
+        routing = "CLOSED"
+    elif result.days_overdue > 0 and result.remaining_balance > 0:
+        routing = "OVERDUE"
+    else:
+        routing = "PARTIAL"
+
+    return {
+        "financial_facts": updated_facts,
+        "routing_decision": routing,
+        "status": "COMPLETED" if result.is_fully_paid else ("REQUIRES_APPROVAL" if routing == "OVERDUE" else "PROCESSING"),
+    }
+
+
+def calculate_aging_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 4: Audit and confirm aging calculations in state."""
+    logger.info("AR Graph [calculate_aging]: Finalizing aging metrics.")
+    facts = state.get("financial_facts") or {}
+    rec_result = facts.get("reconciliation_result") or {}
+
+    logger.info(f"AR Aging Result: bucket={rec_result.get('aging_bucket')}, days_overdue={rec_result.get('days_overdue')}")
+
+    return {
+        "financial_facts": facts,
+    }
+
+
+def route_ar_decision(state: FinanceState) -> str:
+    """Conditional edge router: returns 'closed', 'partial', or 'overdue'."""
+    decision = state.get("routing_decision")
+    if decision == "CLOSED":
+        return "closed"
+    elif decision == "OVERDUE":
+        return "overdue"
+    return "partial"

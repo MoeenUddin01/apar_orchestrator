@@ -10,11 +10,13 @@ router = APIRouter(prefix="/ap", tags=["Accounts Payable"])
 
 
 class InvoiceProcessingRequest(BaseModel):
+    """Payload for submitting an invoice document to the AP workflow."""
     raw_document: str
     workflow_id: Optional[str] = None
 
 
 class InvoiceProcessingResponse(BaseModel):
+    """Response returned after executing the AP workflow graph."""
     workflow_id: str
     status: str
     routing_decision: Optional[str] = None
