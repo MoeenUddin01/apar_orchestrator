@@ -23,7 +23,7 @@ class InvoiceProcessingResponse(BaseModel):
     extracted_data: Optional[Dict[str, Any]] = None
     validation_errors: Optional[list] = None
     financial_facts: Optional[Dict[str, Any]] = None
-
+    drafted_communications: Optional[list] = None
 
 class HITLResumeRequest(BaseModel):
     action: str  # e.g., "APPROVE", "REJECT"
@@ -58,6 +58,7 @@ async def process_invoice(payload: InvoiceProcessingRequest) -> InvoiceProcessin
         extracted_data=final_state.get("extracted_data"),
         validation_errors=final_state.get("validation_errors"),
         financial_facts=final_state.get("financial_facts"),
+        drafted_communications=final_state.get("drafted_communications"),
     )
 
 
@@ -111,4 +112,5 @@ async def resume_ap_workflow(workflow_id: str, payload: HITLResumeRequest) -> In
         extracted_data=final_state.get("extracted_data"),
         validation_errors=final_state.get("validation_errors"),
         financial_facts=final_state.get("financial_facts"),
+        drafted_communications=final_state.get("drafted_communications"),
     )

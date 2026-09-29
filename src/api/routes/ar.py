@@ -22,7 +22,7 @@ class RemittanceProcessingResponse(BaseModel):
     routing_decision: Optional[str] = None
     extracted_data: Optional[Dict[str, Any]] = None
     financial_facts: Optional[Dict[str, Any]] = None
-
+    drafted_communications: Optional[list] = None
 
 class HITLResumeRequest(BaseModel):
     action: str  # e.g., "APPROVE", "REJECT"
@@ -56,6 +56,7 @@ async def process_payment(payload: RemittanceProcessingRequest) -> RemittancePro
         routing_decision=final_state.get("routing_decision"),
         extracted_data=final_state.get("extracted_data"),
         financial_facts=final_state.get("financial_facts"),
+        drafted_communications=final_state.get("drafted_communications"),
     )
 
 
@@ -106,4 +107,5 @@ async def resume_ar_workflow(workflow_id: str, payload: HITLResumeRequest) -> Re
         routing_decision=final_state.get("routing_decision"),
         extracted_data=final_state.get("extracted_data"),
         financial_facts=final_state.get("financial_facts"),
+        drafted_communications=final_state.get("drafted_communications"),
     )

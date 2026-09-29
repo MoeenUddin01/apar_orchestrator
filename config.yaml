@@ -1,0 +1,17 @@
+finance:
+  # Any transaction above this amount requires human-in-the-loop (HITL) approval
+  high_value_threshold: 10000.0
+  
+  tolerances:
+    # Acceptable price difference between PO and Invoice (e.g. 5%)
+    price_variance_percentage: 0.05
+    # Maximum acceptable absolute dollar difference
+    price_variance_absolute: 50.0
+
+workflow:
+  # The number of days overdue before an invoice is escalated (e.g. URGENT tone in emails)
+  auto_escalate_overdue_days: 30
+  
+llm:
+  # Default tone for routine communications
+  default_tone: "PROFESSIONAL"

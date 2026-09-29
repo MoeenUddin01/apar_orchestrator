@@ -7,6 +7,7 @@ from src.graph.ar.nodes import (
     reconcile_payment_node,
     route_ar_decision,
     ar_human_review_node,
+    generate_overdue_reminder_node,
 )
 from src.graph.state import FinanceState
 
@@ -20,6 +21,7 @@ def build_ar_graph():
     builder.add_node("lookup_invoices", lookup_invoices_node)
     builder.add_node("reconcile_payment", reconcile_payment_node)
     builder.add_node("calculate_aging", calculate_aging_node)
+    builder.add_node("generate_overdue", generate_overdue_reminder_node)
     builder.add_node("human_review", ar_human_review_node)
 
     # Add edges
@@ -35,11 +37,12 @@ def build_ar_graph():
         {
             "closed": END,
             "partial": END,
-            "overdue": END,
+            "overdue": "generate_overdue",
             "hitl": "human_review",
         },
     )
     
+    builder.add_edge("generate_overdue", END)
     builder.add_edge("human_review", END)
 
     memory = MemorySaver()

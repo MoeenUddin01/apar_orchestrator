@@ -4,19 +4,25 @@ from src.domain.ap.models import ExtractedInvoice, GoodsReceipt, MatchResult, Pu
 from src.domain.ar.models import CustomerInvoice, ExtractedRemittance, ReconciliationResult
 from src.finance.aging import calculate_days_overdue, get_aging_bucket
 
+from src.core.config import yaml_config
 
 def perform_3_way_match(
     invoice: ExtractedInvoice,
     po: Optional[PurchaseOrder | dict],
     goods_receipt: Optional[GoodsReceipt | dict],
-    tolerance_percentage: float = 0.05,
-    tolerance_fixed: float = 10.0,
+    tolerance_percentage: Optional[float] = None,
+    tolerance_fixed: Optional[float] = None,
 ) -> MatchResult:
     """
     Pure deterministic Python 3-way matching logic.
     Compares Invoice, Purchase Order, and Goods Receipt.
     Calculates exact variances and tolerance thresholds.
     """
+    if tolerance_percentage is None:
+        tolerance_percentage = yaml_config.get("finance", {}).get("tolerances", {}).get("price_variance_percentage", 0.05)
+    if tolerance_fixed is None:
+        tolerance_fixed = yaml_config.get("finance", {}).get("tolerances", {}).get("price_variance_absolute", 10.0)
+
     if isinstance(po, dict):
         po = PurchaseOrder(**po)
     if isinstance(goods_receipt, dict):

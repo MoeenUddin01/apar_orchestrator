@@ -6,6 +6,7 @@ from src.finance.matching import reconcile_ar_payment
 from src.graph.state import FinanceState
 from src.llm.extractors.remittance_extractor import extract_remittance_from_raw_document
 from src.finance.routing import evaluate_hitl_rules
+from src.llm.generators.communications import generate_overdue_reminder_llm
 
 
 def extract_remittance_node(state: FinanceState) -> Dict[str, Any]:
@@ -112,3 +113,26 @@ def route_ar_decision(state: FinanceState) -> str:
     elif decision == "OVERDUE":
         return "overdue"
     return "partial"
+
+def generate_overdue_reminder_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 6: Generate communication for overdue accounts."""
+    logger.info("AR Graph [generate_overdue]: Drafting overdue reminder.")
+    data = state.get("extracted_data") or {}
+    facts = state.get("financial_facts") or {}
+    rec_result = facts.get("reconciliation_result") or {}
+    
+    context = {
+        "invoice_id": data.get("invoice_number", "UNKNOWN"),
+        "customer_name": data.get("customer_name", "Valued Customer"),
+        "days_overdue": rec_result.get("days_overdue", 0),
+        "remaining_balance": rec_result.get("remaining_balance", 0.0),
+    }
+    
+    draft = generate_overdue_reminder_llm(context)
+    
+    drafts = list(state.get("drafted_communications") or [])
+    drafts.append(draft.model_dump())
+    
+    return {
+        "drafted_communications": drafts
+    }
