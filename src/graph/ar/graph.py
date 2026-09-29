@@ -1,10 +1,12 @@
 from langgraph.graph import END, START, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
 from src.graph.ar.nodes import (
     calculate_aging_node,
     extract_remittance_node,
     lookup_invoices_node,
     reconcile_payment_node,
     route_ar_decision,
+    ar_human_review_node,
 )
 from src.graph.state import FinanceState
 
@@ -18,6 +20,7 @@ def build_ar_graph():
     builder.add_node("lookup_invoices", lookup_invoices_node)
     builder.add_node("reconcile_payment", reconcile_payment_node)
     builder.add_node("calculate_aging", calculate_aging_node)
+    builder.add_node("human_review", ar_human_review_node)
 
     # Add edges
     builder.add_edge(START, "extract_remittance")
@@ -33,10 +36,14 @@ def build_ar_graph():
             "closed": END,
             "partial": END,
             "overdue": END,
+            "hitl": "human_review",
         },
     )
+    
+    builder.add_edge("human_review", END)
 
-    return builder.compile()
+    memory = MemorySaver()
+    return builder.compile(checkpointer=memory, interrupt_before=["human_review"])
 
 
 ar_graph = build_ar_graph()

@@ -23,3 +23,5 @@ class FinanceState(TypedDict, total=False):
     validation_errors: List[str]
     financial_facts: Dict[str, Any]
     routing_decision: Optional[str]
+    hitl_decision: Optional[Dict[str, Any]]
+    hitl_input: Optional[Dict[str, Any]]
