@@ -25,3 +25,4 @@ class FinanceState(TypedDict, total=False):
     routing_decision: Optional[str]
     hitl_decision: Optional[Dict[str, Any]]
     hitl_input: Optional[Dict[str, Any]]
+    drafted_communications: Optional[List[Dict[str, Any]]]

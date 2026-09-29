@@ -7,6 +7,7 @@ from src.graph.ap.nodes import (
     route_ap_decision,
     validate_invoice_node,
     human_review_node,
+    generate_discrepancy_notice_node,
 )
 from src.graph.state import FinanceState
 
@@ -20,6 +21,7 @@ def build_ap_graph():
     builder.add_node("validate_invoice", validate_invoice_node)
     builder.add_node("lookup_db", lookup_db_node)
     builder.add_node("match_3_way", match_3_way_node)
+    builder.add_node("generate_discrepancy", generate_discrepancy_notice_node)
     builder.add_node("human_review", human_review_node)
 
     # Add edges
@@ -35,10 +37,12 @@ def build_ap_graph():
         {
             "approve": END,
             "exception": END,
-            "hitl": "human_review",
+            "hitl": "generate_discrepancy",
         },
     )
     
+    # Path from generate_discrepancy to human_review
+    builder.add_edge("generate_discrepancy", "human_review")
     # Path from human review to END
     builder.add_edge("human_review", END)
 

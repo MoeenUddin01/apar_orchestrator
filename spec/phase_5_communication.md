@@ -9,11 +9,11 @@ Introduce LLM-powered natural language generation to draft outward-facing commun
 - **Constraint Enforcement**: The LLM prompt must strictly forbid inventing dates, amounts, or policies not provided in the prompt context.
 
 ## 3. Technical Task List
-- [ ] Implement `generate_overdue_reminder` node for the AR graph (triggered when `aging_bucket` is overdue).
-- [ ] Implement `generate_discrepancy_notice` node for the AP graph (triggered when `tolerance_exceeded` is true).
-- [ ] Map the deterministic fields from `FinanceState.financial_facts` (e.g., remaining balance, variance amount) into the LLM context variables.
-- [ ] Call the LLM to output a drafted email subject and body.
-- [ ] Store the drafted communication inside `FinanceState.drafted_communications` for optional human review.
+- [x] Implement `generate_overdue_reminder` node for the AR graph (triggered when `aging_bucket` is overdue).
+- [x] Implement `generate_discrepancy_notice` node for the AP graph (triggered when `tolerance_exceeded` is true).
+- [x] Map the deterministic fields from `FinanceState.financial_facts` (e.g., remaining balance, variance amount) into the LLM context variables.
+- [x] Call the LLM to output a drafted email subject and body.
+- [x] Store the drafted communication inside `FinanceState.drafted_communications` for optional human review.
 
 ## 4. Input/Output Requirements
 **Generator Input (From Python State)**:

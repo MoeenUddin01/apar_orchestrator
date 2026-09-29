@@ -6,6 +6,7 @@ from src.finance.matching import perform_3_way_match
 from src.graph.state import FinanceState
 from src.llm.extractors.invoice_extractor import extract_invoice_from_raw_document
 from src.finance.routing import evaluate_hitl_rules
+from src.llm.generators.communications import generate_discrepancy_notice_llm
 
 
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
@@ -114,3 +115,36 @@ def route_ap_decision(state: FinanceState) -> str:
     if decision == "APPROVE":
         return "approve"
     return "exception"
+
+def generate_discrepancy_notice_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 6: Generate communication for discrepancies before entering HITL."""
+    logger.info("AP Graph [generate_discrepancy]: Drafting discrepancy notice.")
+    data = state.get("extracted_data") or {}
+    facts = state.get("financial_facts") or {}
+    hitl_decision = state.get("hitl_decision") or {}
+    
+    context = {
+        "invoice_id": data.get("invoice_number", "UNKNOWN"),
+        "vendor_id": data.get("vendor_id", "UNKNOWN"),
+        "po_number": data.get("po_number", "UNKNOWN"),
+        "reason": hitl_decision.get("hitl_reason", "Exception occurred"),
+    }
+    
+    # Try to calculate variance if available
+    match_result = facts.get("match_result") or {}
+    if match_result and not match_result.get("is_match"):
+        # We don't have variance amount explicitly in match_result dict without parsing it, 
+        # but we can try to find variances list.
+        variances = match_result.get("variances", [])
+        if variances:
+            # Just simple sum or first variance
+            context["variance_amount"] = len(variances) # Example simplification
+            
+    draft = generate_discrepancy_notice_llm(context)
+    
+    drafts = list(state.get("drafted_communications") or [])
+    drafts.append(draft.model_dump())
+    
+    return {
+        "drafted_communications": drafts
+    }
