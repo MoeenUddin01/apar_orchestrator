@@ -11,13 +11,13 @@ Implement the core Accounts Receivable (AR) workflow. This phase handles incomin
 - **`src/graph/ar/`**: LangGraph definitions linking the AR pipeline.
 
 ## 3. Technical Task List
-- [ ] Define the AR Payment HTTP endpoint.
-- [ ] Implement the `extract_remittance` node: LLM parses unstructured text into a structured `Remittance` schema.
-- [ ] Implement the `lookup_invoices` node: retrieve unpaid invoices for the identified customer from PostgreSQL.
-- [ ] Implement the `reconcile_payment` node: Python logic applying payment amounts to invoice totals, calculating new outstanding balances.
-- [ ] Implement the `calculate_aging` node: Python logic to bucket remaining balances (e.g., 30/60/90 days overdue).
-- [ ] Implement the `route_ar` edge: conditionally transition the state to 'Closed', 'Partial', or 'Overdue' based entirely on the deterministic math outputs.
-- [ ] Assemble the AR LangGraph in `graph/ar/graph.py`.
+- [x] Define the AR Payment HTTP endpoint.
+- [x] Implement the `extract_remittance` node: LLM parses unstructured text into a structured `Remittance` schema.
+- [x] Implement the `lookup_invoices` node: retrieve unpaid invoices for the identified customer from PostgreSQL.
+- [x] Implement the `reconcile_payment` node: Python logic applying payment amounts to invoice totals, calculating new outstanding balances.
+- [x] Implement the `calculate_aging` node: Python logic to bucket remaining balances (e.g., 30/60/90 days overdue).
+- [x] Implement the `route_ar` edge: conditionally transition the state to 'Closed', 'Partial', or 'Overdue' based entirely on the deterministic math outputs.
+- [x] Assemble the AR LangGraph in `graph/ar/graph.py`.
 
 ## 4. Input/Output Requirements
 **Extraction Output Schema (LLM boundary)**:

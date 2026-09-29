@@ -1,5 +1,8 @@
-from typing import Optional
+from datetime import date
+from typing import List, Optional
 from src.domain.ap.models import ExtractedInvoice, GoodsReceipt, MatchResult, PurchaseOrder
+from src.domain.ar.models import CustomerInvoice, ExtractedRemittance, ReconciliationResult
+from src.finance.aging import calculate_days_overdue, get_aging_bucket
 
 
 def perform_3_way_match(
@@ -64,4 +67,62 @@ def perform_3_way_match(
             "quantity_mismatch": quantity_mismatch,
             "allowed_tolerance": allowed_tolerance,
         },
+    )
+
+
+def reconcile_ar_payment(
+    remittance: ExtractedRemittance,
+    invoices: List[CustomerInvoice],
+    current_date: Optional[date] = None,
+) -> ReconciliationResult:
+    """
+    Pure deterministic Python logic to apply remittance payments to unpaid customer invoices,
+    calculate outstanding balances, and determine aging buckets.
+    """
+    payment_pool = round(remittance.total_payment, 2)
+    total_applied = 0.0
+    matched_invoice_numbers = []
+    max_days_overdue = 0
+
+    # Filter target invoices if referenced in remittance, else reconcile against all customer invoices
+    target_invoices = [
+        inv for inv in invoices
+        if not remittance.referenced_invoices or inv.invoice_number in remittance.referenced_invoices
+    ]
+    if not target_invoices:
+        target_invoices = invoices
+
+    for inv in target_invoices:
+        unpaid_amount = round(inv.total_amount - inv.amount_paid, 2)
+        if unpaid_amount <= 0:
+            continue
+
+        applied = min(payment_pool, unpaid_amount)
+        payment_pool = round(payment_pool - applied, 2)
+        total_applied = round(total_applied + applied, 2)
+        matched_invoice_numbers.append(inv.invoice_number)
+
+        # Check aging on remaining balance
+        rem_inv_balance = unpaid_amount - applied
+        if rem_inv_balance > 0:
+            days = calculate_days_overdue(inv.due_date, current_date)
+            if days > max_days_overdue:
+                max_days_overdue = days
+
+        if payment_pool <= 0:
+            break
+
+    total_owed = sum(round(inv.total_amount - inv.amount_paid, 2) for inv in target_invoices)
+    remaining_balance = max(0.0, round(total_owed - total_applied, 2))
+    is_fully_paid = remaining_balance == 0.0 and total_owed > 0
+
+    aging_bucket = get_aging_bucket(max_days_overdue if remaining_balance > 0 else 0)
+
+    return ReconciliationResult(
+        applied_amount=total_applied,
+        remaining_balance=remaining_balance,
+        is_fully_paid=is_fully_paid,
+        days_overdue=max_days_overdue if remaining_balance > 0 else 0,
+        aging_bucket=aging_bucket,
+        matched_invoices=matched_invoice_numbers,
     )

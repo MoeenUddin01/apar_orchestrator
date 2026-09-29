@@ -45,9 +45,11 @@ class APRepository:
     """Repository for AP Purchase Orders and Goods Receipts database lookups."""
 
     async def get_purchase_order(self, po_number: str) -> Optional[PurchaseOrder]:
+        """Fetch a Purchase Order by purchase order number."""
         return MOCK_PO_DATABASE.get(po_number)
 
     async def get_goods_receipt(self, po_number: str) -> Optional[GoodsReceipt]:
+        """Fetch a Goods Receipt associated with a purchase order number."""
         return MOCK_GR_DATABASE.get(po_number)
 
 
