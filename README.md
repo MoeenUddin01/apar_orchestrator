@@ -826,7 +826,7 @@ Planned implementation order:
 [x] Create Phase 1 specification
 [x] Implement Phase 1
 [x] Create Phase 2 specification
-[ ] Implement AP MVP
+[x] Implement AP MVP
 [ ] Create Phase 3 specification
 [ ] Implement AR MVP
 [ ] Implement HITL

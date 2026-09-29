@@ -11,13 +11,13 @@ Implement the core Accounts Payable (AP) workflow using LangGraph. The workflow 
 - **`src/graph/ap/`**: LangGraph definitions (`graph.py`, `nodes.py`) linking these stages.
 
 ## 3. Technical Task List
-- [ ] Define the AP Invoice HTTP endpoint.
-- [ ] Implement the `extract_invoice` node: calls LLM to output structured JSON matching the `Invoice` schema.
-- [ ] Implement the `validate_invoice` node: Python logic to ensure extracted data contains required financial fields.
-- [ ] Implement the `lookup_db` node: queries Postgres for associated POs and Goods Receipts.
-- [ ] Implement the `match_3_way` node: Python function in `finance/matching.py` to compare line items, calculate variances, and check against tolerances.
-- [ ] Implement the `route_ap` edge logic: conditionally route to 'Approve' or 'Exception' based entirely on the deterministic boolean output of the 3-way match.
-- [ ] Assemble the AP LangGraph in `graph/ap/graph.py`.
+- [x] Define the AP Invoice HTTP endpoint.
+- [x] Implement the `extract_invoice` node: calls LLM to output structured JSON matching the `Invoice` schema.
+- [x] Implement the `validate_invoice` node: Python logic to ensure extracted data contains required financial fields.
+- [x] Implement the `lookup_db` node: queries Postgres for associated POs and Goods Receipts.
+- [x] Implement the `match_3_way` node: Python function in `finance/matching.py` to compare line items, calculate variances, and check against tolerances.
+- [x] Implement the `route_ap` edge logic: conditionally route to 'Approve' or 'Exception' based entirely on the deterministic boolean output of the 3-way match.
+- [x] Assemble the AP LangGraph in `graph/ap/graph.py`.
 
 ## 4. Input/Output Requirements
 **Extraction Output Schema (LLM boundary)**:
