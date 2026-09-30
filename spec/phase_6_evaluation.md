@@ -10,12 +10,12 @@ Establish a rigorous testing and evaluation framework to prove the reliability o
 - **`tests/integration/`**: End-to-end tests exercising LangGraph state transitions from API entry to database persistence.
 
 ## 3. Technical Task List
-- [ ] Write `seed_database.py` to generate deterministic synthetic records (e.g., POs with exact quantities, customers with known outstanding balances).
-- [ ] Create a library of synthetic invoice/remittance input text (both perfect formats and messy formats).
-- [ ] Write end-to-end Pytest cases for AP: perfect 3-way match, quantity mismatch, missing PO, tolerance exceeded.
-- [ ] Write end-to-end Pytest cases for AR: full payment, partial payment, aging bucket boundary tests.
-- [ ] Implement `run_evaluation.py` to test the LLM extraction accuracy against a ground-truth dataset (measuring hallucination rates or extraction failures).
-- [ ] Ensure all LLM nodes in unit tests can be mocked to guarantee CI/CD reliability without relying on external API calls.
+- [x] Write `seed_database.py` to generate deterministic synthetic records (e.g., POs with exact quantities, customers with known outstanding balances).
+- [x] Create a library of synthetic invoice/remittance input text (both perfect formats and messy formats).
+- [x] Write end-to-end Pytest cases for AP: perfect 3-way match, quantity mismatch, missing PO, tolerance exceeded.
+- [x] Write end-to-end Pytest cases for AR: full payment, partial payment, aging bucket boundary tests.
+- [x] Implement `run_evaluation.py` to test the LLM extraction accuracy against a ground-truth dataset (measuring hallucination rates or extraction failures).
+- [x] Ensure all LLM nodes in unit tests can be mocked to guarantee CI/CD reliability without relying on external API calls.
 
 ## 4. Input/Output Requirements
 **Evaluation Metrics**:

@@ -1,0 +1,30 @@
+{
+  "PO-1001": {
+    "receipt_id": "GR-9001",
+    "po_number": "PO-1001",
+    "received_quantity": 10.0,
+    "line_items": [
+      {
+        "item_id": "ITEM-A",
+        "description": "Widget A",
+        "quantity": 10.0,
+        "unit_price": 100.0,
+        "total_price": 1000.0
+      }
+    ]
+  },
+  "PO-1002": {
+    "receipt_id": "GR-9002",
+    "po_number": "PO-1002",
+    "received_quantity": 5.0,
+    "line_items": [
+      {
+        "item_id": "ITEM-B",
+        "description": "Gadget B",
+        "quantity": 5.0,
+        "unit_price": 1000.0,
+        "total_price": 5000.0
+      }
+    ]
+  }
+}
