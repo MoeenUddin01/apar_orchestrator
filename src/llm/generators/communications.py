@@ -78,17 +78,28 @@ def generate_discrepancy_notice_llm(context: Dict[str, Any]) -> DraftedCommunica
     invoice_id = context.get("invoice_id", "UNKNOWN")
     vendor_id = context.get("vendor_id", "UNKNOWN")
     po_number = context.get("po_number", "UNKNOWN")
-    raw_reason = context.get("reason", "A discrepancy was found")
     variance_amount = context.get("variance_amount", 0.0)
+    raw_reasons = context.get("reasons", [])
+    if not raw_reasons:
+        raw_reasons = [context.get("reason", "A discrepancy was found")]
     
     # Translate technical ENUM to human context
-    reason_context = "An unknown error occurred."
-    if raw_reason == "HIGH_VALUE":
-        reason_context = "The invoice exceeds our standard high-value threshold and requires manual executive approval. Please expect a slight delay."
-    elif raw_reason == "TOLERANCE_EXCEPTION":
-        reason_context = f"There is a price variance of ${variance_amount:,.2f} between the billed amount and our Purchase Order records."
-    elif raw_reason == "MISSING_DOCS":
-        reason_context = "We have no record of receiving the physical goods at our warehouse (Missing Goods Receipt)."
+    reason_texts = []
+    for raw_reason in raw_reasons:
+        if raw_reason == "HIGH_VALUE":
+            reason_texts.append("The invoice exceeds our standard high-value threshold and requires manual executive approval.")
+        elif raw_reason == "TOLERANCE_EXCEPTION":
+            if context.get("quantity_mismatch"):
+                reason_texts.append("There is a quantity mismatch (short shipment) between the billed amount and our Goods Receipt records.")
+            else:
+                reason_texts.append(f"There is a price variance of ${variance_amount:,.2f} between the billed amount and our Purchase Order records.")
+        elif raw_reason == "MISSING_DOCS":
+            reason_texts.append("We have no record of receiving the physical goods at our warehouse (Missing Goods Receipt).")
+
+    if not reason_texts:
+        reason_texts.append("An unknown error occurred.")
+        
+    reason_context = " ".join(reason_texts)
 
     if yaml_config.get("llm", {}).get("provider", "groq") == "groq" and yaml_config.get("llm", {}).get("api_key"):
         try:

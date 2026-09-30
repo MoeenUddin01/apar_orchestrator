@@ -128,12 +128,14 @@ def generate_discrepancy_notice_node(state: FinanceState) -> Dict[str, Any]:
         "vendor_id": data.get("vendor_id", "UNKNOWN"),
         "po_number": data.get("po_number", "UNKNOWN"),
         "reason": hitl_decision.get("hitl_reason", "Exception occurred"),
+        "reasons": hitl_decision.get("hitl_reasons", []),
     }
     
     # Get variance amount from match result if available
     match_result = facts.get("match_result") or {}
     if match_result and not match_result.get("is_match"):
         context["variance_amount"] = match_result.get("variance_amount", 0.0)
+        context["quantity_mismatch"] = match_result.get("details", {}).get("quantity_mismatch", False)
             
     draft = generate_discrepancy_notice_llm(context)
     
