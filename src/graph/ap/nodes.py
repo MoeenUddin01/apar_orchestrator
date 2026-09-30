@@ -130,15 +130,10 @@ def generate_discrepancy_notice_node(state: FinanceState) -> Dict[str, Any]:
         "reason": hitl_decision.get("hitl_reason", "Exception occurred"),
     }
     
-    # Try to calculate variance if available
+    # Get variance amount from match result if available
     match_result = facts.get("match_result") or {}
     if match_result and not match_result.get("is_match"):
-        # We don't have variance amount explicitly in match_result dict without parsing it, 
-        # but we can try to find variances list.
-        variances = match_result.get("variances", [])
-        if variances:
-            # Just simple sum or first variance
-            context["variance_amount"] = len(variances) # Example simplification
+        context["variance_amount"] = match_result.get("variance_amount", 0.0)
             
     draft = generate_discrepancy_notice_llm(context)
     

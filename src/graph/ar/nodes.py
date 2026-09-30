@@ -51,7 +51,7 @@ def reconcile_payment_node(state: FinanceState) -> Dict[str, Any]:
     updated_facts["reconciliation_result"] = result.model_dump()
 
     hitl_decision = evaluate_hitl_rules(
-        amount=remittance.payment_amount,
+        amount=remittance.total_payment,
         tolerance_exceeded=not result.is_fully_paid,
         missing_docs=(len(invoices) == 0)
     )
