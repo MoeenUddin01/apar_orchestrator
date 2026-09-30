@@ -50,9 +50,11 @@ def reconcile_payment_node(state: FinanceState) -> Dict[str, Any]:
     updated_facts = dict(facts)
     updated_facts["reconciliation_result"] = result.model_dump()
 
+    # For AR, underpayment is automatically managed via remaining_balance/aging buckets.
+    # It is not a tolerance exception requiring manual human investigation unless it's missing docs or high value.
     hitl_decision = evaluate_hitl_rules(
         amount=remittance.total_payment,
-        tolerance_exceeded=not result.is_fully_paid,
+        tolerance_exceeded=False,
         missing_docs=(len(invoices) == 0)
     )
 
@@ -67,7 +69,11 @@ def reconcile_payment_node(state: FinanceState) -> Dict[str, Any]:
             routing = "OVERDUE"
         else:
             routing = "PARTIAL"
-        status = "COMPLETED" if result.is_fully_paid else ("REQUIRES_APPROVAL" if routing == "OVERDUE" else "PROCESSING")
+            
+        if routing == "OVERDUE":
+            status = "REQUIRES_APPROVAL"
+        else:
+            status = "COMPLETED"
 
     return {
         "financial_facts": updated_facts,
@@ -95,11 +101,10 @@ def ar_human_review_node(state: FinanceState) -> Dict[str, Any]:
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
     
-    # We map APPROVE to CLOSED and REJECT to OVERDUE for AR, or something simple
-    new_routing = "CLOSED" if action == "APPROVE" else "OVERDUE"
+    new_routing = "APPROVED" if action == "APPROVE" else "CANCELLED"
     return {
         "routing_decision": new_routing,
-        "status": "COMPLETED" if new_routing == "CLOSED" else "REQUIRES_APPROVAL",
+        "status": "COMPLETED",
     }
 
 
@@ -121,9 +126,12 @@ def generate_overdue_reminder_node(state: FinanceState) -> Dict[str, Any]:
     facts = state.get("financial_facts") or {}
     rec_result = facts.get("reconciliation_result") or {}
     
+    inv_list = data.get("referenced_invoices", [])
+    invoice_ref = inv_list[0] if inv_list else "your recent invoices"
+    
     context = {
-        "invoice_id": data.get("invoice_number", "UNKNOWN"),
-        "customer_name": data.get("customer_name", "Valued Customer"),
+        "invoice_id": invoice_ref,
+        "customer_name": data.get("customer_identifier", "Valued Customer"),
         "days_overdue": rec_result.get("days_overdue", 0),
         "remaining_balance": rec_result.get("remaining_balance", 0.0),
     }

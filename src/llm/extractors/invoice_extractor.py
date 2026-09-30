@@ -34,7 +34,7 @@ def extract_invoice_from_raw_document(raw_document: str) -> ExtractedInvoice:
             from langchain_groq import ChatGroq
             
             llm = ChatGroq(
-                model="llama3-8b-8192", 
+                model="qwen/qwen3.8-27b", 
                 temperature=0, 
                 api_key=settings.GROQ_API_KEY
             )
@@ -47,9 +47,9 @@ def extract_invoice_from_raw_document(raw_document: str) -> ExtractedInvoice:
             logger.error(f"Groq extraction failed: {e}. Falling back to regex.")
 
     # Regex heuristic fallback for text documents when LLM provider is offline
-    invoice_num = re.search(r"Invoice\s*#?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
-    po_num = re.search(r"(?:PO|Purchase\s*Order)\s*#?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
-    vendor = re.search(r"Vendor\s*#?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
+    invoice_num = re.search(r"Invoice\s*(?:Number|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
+    po_num = re.search(r"(?:PO|Purchase\s*Order|Reference\s*PO)\s*(?:Number|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
+    vendor = re.search(r"Vendor\s*(?:ID|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
     total = re.search(r"Total\s*:?\s*\$?([0-9,]+\.?[0-9]*)", raw_document, re.IGNORECASE)
 
     extracted_total = float(total.group(1).replace(",", "")) if total else 0.0

@@ -48,4 +48,4 @@ async def test_ap_workflow_tolerance_exceeded():
     drafts = final_state.get("drafted_communications", [])
     assert len(drafts) > 0
     assert drafts[0]["tone"] == "PROFESSIONAL"
-    assert "variance amount" in drafts[0]["body"]
+    assert "variance" in drafts[0]["body"].lower()

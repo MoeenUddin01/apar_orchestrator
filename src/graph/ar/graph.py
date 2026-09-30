@@ -42,7 +42,7 @@ def build_ar_graph():
         },
     )
     
-    builder.add_edge("generate_overdue", END)
+    builder.add_edge("generate_overdue", "human_review")
     builder.add_edge("human_review", END)
 
     memory = MemorySaver()

@@ -5,10 +5,18 @@ from sqlalchemy.orm import declarative_base
 from src.core.config import settings
 from src.core.logging import logger
 
+from sqlalchemy.pool import NullPool
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     future=True,
+    pool_pre_ping=True,
+    poolclass=NullPool,
+    connect_args={
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0
+    },
 )
 
 AsyncSessionLocal = async_sessionmaker(

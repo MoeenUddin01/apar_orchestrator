@@ -39,7 +39,7 @@ async def test_ar_workflow_partial_payment():
     config = {"configurable": {"thread_id": "test-ar-wf-2"}}
     final_state = await ar_graph.ainvoke(initial_state, config=config)
 
-    assert final_state["status"] == "REQUIRES_APPROVAL"
-    assert final_state["routing_decision"] == "HITL"
+    assert final_state["status"] == "COMPLETED"
+    assert final_state["routing_decision"] == "PARTIAL"
     assert final_state["financial_facts"]["reconciliation_result"]["is_fully_paid"] is False
     assert final_state["financial_facts"]["reconciliation_result"]["remaining_balance"] > 0

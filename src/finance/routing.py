@@ -12,9 +12,9 @@ def evaluate_hitl_rules(amount: float, tolerance_exceeded: bool, missing_docs: b
     
     if amount > high_value_threshold:
         return RoutingDecision(requires_hitl=True, hitl_reason="HIGH_VALUE")
-    if tolerance_exceeded:
-        return RoutingDecision(requires_hitl=True, hitl_reason="TOLERANCE_EXCEPTION")
     if missing_docs:
         return RoutingDecision(requires_hitl=True, hitl_reason="MISSING_DOCS")
+    if tolerance_exceeded:
+        return RoutingDecision(requires_hitl=True, hitl_reason="TOLERANCE_EXCEPTION")
     
     return RoutingDecision(requires_hitl=False, hitl_reason=None)

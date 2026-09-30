@@ -23,7 +23,8 @@ async def test_ar_graph_execution_closed():
         "financial_facts": {},
     }
 
-    final_state = await ar_graph.ainvoke(initial_state)
+    config = {"configurable": {"thread_id": "ar-test-1"}}
+    final_state = await ar_graph.ainvoke(initial_state, config=config)
     assert final_state["status"] == "COMPLETED"
     assert final_state["routing_decision"] == "CLOSED"
     assert final_state["financial_facts"]["reconciliation_result"]["is_fully_paid"] is True
@@ -46,7 +47,8 @@ async def test_ar_graph_execution_overdue():
         "financial_facts": {},
     }
 
-    final_state = await ar_graph.ainvoke(initial_state)
+    config = {"configurable": {"thread_id": "ar-test-2"}}
+    final_state = await ar_graph.ainvoke(initial_state, config=config)
     assert final_state["routing_decision"] == "OVERDUE"
     assert final_state["financial_facts"]["reconciliation_result"]["remaining_balance"] > 0
 

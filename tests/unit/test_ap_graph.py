@@ -27,7 +27,8 @@ async def test_ap_graph_execution_perfect_match():
         "financial_facts": {},
     }
 
-    final_state = await ap_graph.ainvoke(initial_state)
+    config = {"configurable": {"thread_id": "ap-test-1"}}
+    final_state = await ap_graph.ainvoke(initial_state, config=config)
     assert final_state["status"] == "COMPLETED"
     assert final_state["routing_decision"] == "APPROVE"
     assert final_state["financial_facts"]["match_result"]["is_match"] is True
@@ -51,9 +52,10 @@ async def test_ap_graph_execution_exception_routing():
         "financial_facts": {},
     }
 
-    final_state = await ap_graph.ainvoke(initial_state)
+    config = {"configurable": {"thread_id": "ap-test-2"}}
+    final_state = await ap_graph.ainvoke(initial_state, config=config)
     assert final_state["status"] == "REQUIRES_APPROVAL"
-    assert final_state["routing_decision"] == "EXCEPTION"
+    assert final_state["routing_decision"] == "HITL"
     assert final_state["financial_facts"]["match_result"]["is_match"] is False
 
 
