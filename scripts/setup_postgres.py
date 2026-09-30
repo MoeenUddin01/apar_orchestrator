@@ -82,8 +82,72 @@ async def setup_database():
             )
 
             session.add_all([po_1, po_2, gr_1, gr_2, inv_1, inv_2, inv_3])
+            
+            # --- Generate 200 additional random records ---
+            import random
+            from datetime import timedelta, date
+
+            generated_records = []
+            
+            # Generate 100 AP records (Purchase Orders & Goods Receipts)
+            for i in range(10, 110):
+                po_num = f"PO-{1000 + i}"
+                vendor = f"VEND-{random.randint(10, 50):03d}"
+                amount = round(random.uniform(500.0, 15000.0), 2)
+                qty = float(random.randint(5, 100))
+                unit_price = round(amount / qty, 2)
+                
+                # Re-adjust amount to perfectly match unit_price * qty
+                amount = round(unit_price * qty, 2)
+
+                line_items = [
+                    {"item_id": f"ITEM-{random.randint(100, 999)}", "description": "Bulk Supplies", "quantity": qty, "unit_price": unit_price, "total_price": amount}
+                ]
+
+                # Create PO
+                generated_records.append(PurchaseOrderDB(
+                    po_number=po_num,
+                    vendor_id=vendor,
+                    expected_total=amount,
+                    line_items=line_items
+                ))
+
+                # Create matching GR 90% of the time, 10% missing GR
+                if random.random() > 0.1:
+                    generated_records.append(GoodsReceiptDB(
+                        receipt_id=f"GR-{9000 + i}",
+                        po_number=po_num,
+                        received_quantity=qty,
+                        line_items=line_items
+                    ))
+
+            # Generate 100 AR records (Customer Invoices)
+            today = date.today()
+            statuses = ["UNPAID", "PAID", "PROCESSING"]
+            
+            for i in range(10, 110):
+                inv_num = f"INV-{2000 + i}"
+                cust = f"CUST-{random.randint(10, 50):03d}"
+                total = round(random.uniform(200.0, 5000.0), 2)
+                status = random.choices(statuses, weights=[0.6, 0.3, 0.1])[0]
+                amount_paid = total if status == "PAID" else (round(total / 2, 2) if status == "PROCESSING" else 0.0)
+                
+                # Random due date between 30 days ago and 30 days from now
+                offset = random.randint(-30, 30)
+                due_date_str = (today + timedelta(days=offset)).isoformat()
+
+                generated_records.append(CustomerInvoiceDB(
+                    invoice_number=inv_num,
+                    customer_id=cust,
+                    total_amount=total,
+                    amount_paid=amount_paid,
+                    due_date=due_date_str,
+                    status=status
+                ))
+
+            session.add_all(generated_records)
             await session.commit()
-            print("Successfully seeded all mock data into Supabase PostgreSQL!")
+            print(f"Successfully seeded 7 core test records and {len(generated_records)} generated records into Supabase PostgreSQL!")
 
     except Exception as e:
         print(f"Error setting up database: {e}")
