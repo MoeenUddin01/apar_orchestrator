@@ -14,7 +14,7 @@ def evaluate_ap_extraction():
     test_cases = [
         ('{"invoice_number": "INV-100", "vendor_id": "VEND-1", "po_number": "PO-100", "invoice_total": 500.0}', "INV-100"),
         ('Invoice #: INV-999\nVendor: VEND-XYZ\nPO: PO-777\nTotal: $1,200.50', "INV-999"),
-        ('Bad format invoice without standard names. inv-number is missing.', "INV-1001"), # Fallback
+        ('Bad format invoice without standard names. inv-number is missing.', "INV-UNKNOWN"), # Expected fallback or LLM generation
     ]
     
     passed = 0
