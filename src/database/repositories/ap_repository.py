@@ -1,56 +1,46 @@
-from typing import Dict, Optional
+from typing import Optional
+from sqlalchemy import select
+from src.database.connection import AsyncSessionLocal
+from src.database.models.ap_models import PurchaseOrderDB, GoodsReceiptDB
 from src.domain.ap.models import GoodsReceipt, LineItem, PurchaseOrder
-
-# Mock repository dataset for initial database lookups
-MOCK_PO_DATABASE: Dict[str, PurchaseOrder] = {
-    "PO-1001": PurchaseOrder(
-        po_number="PO-1001",
-        vendor_id="VEND-001",
-        expected_total=1000.0,
-        line_items=[
-            LineItem(item_id="ITEM-A", description="Widget A", quantity=10.0, unit_price=100.0, total_price=1000.0)
-        ],
-    ),
-    "PO-1002": PurchaseOrder(
-        po_number="PO-1002",
-        vendor_id="VEND-002",
-        expected_total=5000.0,
-        line_items=[
-            LineItem(item_id="ITEM-B", description="Gadget B", quantity=5.0, unit_price=1000.0, total_price=5000.0)
-        ],
-    ),
-}
-
-MOCK_GR_DATABASE: Dict[str, GoodsReceipt] = {
-    "PO-1001": GoodsReceipt(
-        receipt_id="GR-9001",
-        po_number="PO-1001",
-        received_quantity=10.0,
-        line_items=[
-            LineItem(item_id="ITEM-A", description="Widget A", quantity=10.0, unit_price=100.0, total_price=1000.0)
-        ],
-    ),
-    "PO-1002": GoodsReceipt(
-        receipt_id="GR-9002",
-        po_number="PO-1002",
-        received_quantity=5.0,
-        line_items=[
-            LineItem(item_id="ITEM-B", description="Gadget B", quantity=5.0, unit_price=1000.0, total_price=5000.0)
-        ],
-    ),
-}
 
 
 class APRepository:
     """Repository for AP Purchase Orders and Goods Receipts database lookups."""
 
     async def get_purchase_order(self, po_number: str) -> Optional[PurchaseOrder]:
-        """Fetch a Purchase Order by purchase order number."""
-        return MOCK_PO_DATABASE.get(po_number)
+        """Fetch a Purchase Order by purchase order number from PostgreSQL."""
+        async with AsyncSessionLocal() as session:
+            stmt = select(PurchaseOrderDB).where(PurchaseOrderDB.po_number == po_number)
+            result = await session.execute(stmt)
+            db_po = result.scalar_one_or_none()
+            
+            if db_po:
+                line_items = [LineItem(**item) for item in db_po.line_items]
+                return PurchaseOrder(
+                    po_number=db_po.po_number,
+                    vendor_id=db_po.vendor_id,
+                    expected_total=db_po.expected_total,
+                    line_items=line_items
+                )
+            return None
 
     async def get_goods_receipt(self, po_number: str) -> Optional[GoodsReceipt]:
-        """Fetch a Goods Receipt associated with a purchase order number."""
-        return MOCK_GR_DATABASE.get(po_number)
+        """Fetch a Goods Receipt associated with a purchase order number from PostgreSQL."""
+        async with AsyncSessionLocal() as session:
+            stmt = select(GoodsReceiptDB).where(GoodsReceiptDB.po_number == po_number)
+            result = await session.execute(stmt)
+            db_gr = result.scalar_one_or_none()
+            
+            if db_gr:
+                line_items = [LineItem(**item) for item in db_gr.line_items]
+                return GoodsReceipt(
+                    receipt_id=db_gr.receipt_id,
+                    po_number=db_gr.po_number,
+                    received_quantity=db_gr.received_quantity,
+                    line_items=line_items
+                )
+            return None
 
 
 ap_repository = APRepository()
