@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict
 from src.core.logging import logger
 from src.domain.ap.models import ExtractedInvoice, LineItem
-
+from src.core.config import settings
 
 def extract_invoice_from_raw_document(raw_document: str) -> ExtractedInvoice:
     """
@@ -28,6 +28,23 @@ def extract_invoice_from_raw_document(raw_document: str) -> ExtractedInvoice:
         )
     except (json.JSONDecodeError, TypeError):
         pass
+
+    if settings.LLM_PROVIDER == "groq" and settings.GROQ_API_KEY:
+        try:
+            from langchain_groq import ChatGroq
+            
+            llm = ChatGroq(
+                model="llama3-8b-8192", 
+                temperature=0, 
+                api_key=settings.GROQ_API_KEY
+            )
+            structured_llm = llm.with_structured_output(ExtractedInvoice)
+            
+            prompt = f"Extract the invoice details from the following document text. Be precise.\n\nDocument:\n{raw_document}"
+            result = structured_llm.invoke(prompt)
+            return result
+        except Exception as e:
+            logger.error(f"Groq extraction failed: {e}. Falling back to regex.")
 
     # Regex heuristic fallback for text documents when LLM provider is offline
     invoice_num = re.search(r"Invoice\s*#?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)

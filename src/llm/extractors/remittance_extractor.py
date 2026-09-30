@@ -2,7 +2,7 @@ import json
 import re
 from src.core.logging import logger
 from src.domain.ar.models import ExtractedRemittance
-
+from src.core.config import settings
 
 def extract_remittance_from_raw_document(raw_document: str) -> ExtractedRemittance:
     """
@@ -22,6 +22,23 @@ def extract_remittance_from_raw_document(raw_document: str) -> ExtractedRemittan
         )
     except (json.JSONDecodeError, TypeError):
         pass
+
+    if settings.LLM_PROVIDER == "groq" and settings.GROQ_API_KEY:
+        try:
+            from langchain_groq import ChatGroq
+            
+            llm = ChatGroq(
+                model="llama3-8b-8192", 
+                temperature=0, 
+                api_key=settings.GROQ_API_KEY
+            )
+            structured_llm = llm.with_structured_output(ExtractedRemittance)
+            
+            prompt = f"Extract the remittance details from the following document text. Be precise.\n\nDocument:\n{raw_document}"
+            result = structured_llm.invoke(prompt)
+            return result
+        except Exception as e:
+            logger.error(f"Groq extraction failed: {e}. Falling back to regex.")
 
     # Regex heuristic fallback when LLM provider is offline
     cust = re.search(r"Customer\s*#?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
