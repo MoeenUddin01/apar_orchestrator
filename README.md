@@ -89,6 +89,148 @@ Crucially, testing infrastructure has been isolated using `poolclass=NullPool` o
 
 ---
 
+## 6. Testing Cheat Sheet
+
+Copy and paste the following test documents directly into the Streamlit UI to trigger different paths in the workflows. These documents map exactly to the seeded database records.
+
+### 🧾 Accounts Payable (AP) Workflows
+
+**1. Perfect 3-Way Match (Auto-Approve)**
+Matches the Purchase Order and Goods Receipt perfectly. The workflow will run straight through and finish with `COMPLETED`.
+```text
+INVOICE
+-----------------
+Invoice Number: INV-9905
+Vendor ID: VEND-124
+PO Reference: PO-1020
+Date: 2026-09-30
+
+Description: 27-Inch 4K UHD Monitor
+Quantity: 37
+Unit Price: $250.00
+Total Billed: $9,250.00
+```
+
+**2. Price Tolerance Exception**
+Using the same PO (`PO-1020`), but the vendor bills $500 per unit instead of the agreed $250. The math engine will catch the variance, halt the graph, and draft an exception email.
+```text
+INVOICE
+-----------------
+Invoice Number: INV-9906
+Vendor ID: VEND-124
+PO Reference: PO-1020
+Date: 2026-09-30
+
+Description: 27-Inch 4K UHD Monitor
+Quantity: 37
+Unit Price: $500.00
+Total Billed: $18,500.00
+```
+
+**3. Quantity Exception (Short Shipment)**
+The vendor billed for 10 units, but the warehouse logged receipt of 8 units in the database. Fails the match, routes to Human-In-The-Loop.
+```text
+INVOICE
+-----------------
+Invoice Number: INV-9902
+Vendor ID: VEND-129
+PO Reference: PO-1062
+Date: 2026-09-30
+
+Description: Ergonomic Office Chair
+Quantity: 10
+Unit Price: $200.00
+Total Billed: $2,000.00
+```
+
+**4. High-Value Executive Approval**
+Perfect match, but the total amount ($60,000) exceeds the threshold (>$10,000). The routing logic halts the workflow for human approval.
+```text
+INVOICE
+-----------------
+Invoice Number: INV-9903
+Vendor ID: VEND-118
+PO Reference: PO-1088
+Date: 2026-09-30
+
+Description: Enterprise Rack Server R740
+Quantity: 4
+Unit Price: $15,000.00
+Total Billed: $60,000.00
+```
+
+**5. Missing Goods Receipt Exception**
+The invoice matches the PO, but the goods have not been received at the warehouse (No GR record exists).
+```text
+INVOICE
+-----------------
+Invoice Number: INV-9904
+Vendor ID: VEND-122
+PO Reference: PO-1095
+Date: 2026-09-30
+
+Description: Gigabit Managed Switch 24-Port
+Quantity: 30
+Unit Price: $450.00
+Total Billed: $13,500.00
+```
+
+### 💸 Accounts Receivable (AR) Workflows
+
+**6. Full Payment on Current Invoice (Auto-Close)**
+This invoice (`INV-2015`) isn't due until October 18th. The customer already paid part of it, leaving a balance of $7,113.94. This remittance pays the exact remaining balance. The system completes it.
+```text
+REMITTANCE ADVICE
+-----------------
+Customer ID: CUST-218
+Date: 2026-09-30
+Amount Paid: $7,113.94
+
+Payment applied to the following reference invoices:
+INV-2015
+```
+
+**7. Partial Payment on Current Invoice**
+Paying only $1,000 towards an invoice that isn't due yet. The system accepts the payment, lowers the balance, and safely completes without overdue alerts.
+```text
+REMITTANCE ADVICE
+-----------------
+Customer ID: CUST-218
+Date: 2026-09-30
+Amount Paid: $1,000.00
+
+Payment applied to the following reference invoices:
+INV-2015
+```
+
+**8. Full Payment on an OVERDUE Invoice**
+`INV-2045` was due on September 28th. This payment finally settles it in full. The system completes processing without complaining since the balance is zeroed out.
+```text
+REMITTANCE ADVICE
+-----------------
+Customer ID: CUST-226
+Date: 2026-09-30
+Amount Paid: $2,290.94
+
+Payment applied to the following reference invoices:
+INV-2045
+```
+
+**9. Partial Payment on a Severely OVERDUE Invoice**
+`INV-2070` was due on August 19th. The customer owes $7,608.81 but is only sending $1,000. This triggers the AI to draft an overdue reminder and halts the workflow for review.
+```text
+REMITTANCE ADVICE
+-----------------
+Customer ID: CUST-212
+Date: 2026-09-30
+Amount Paid: $1,000.00
+
+Payment applied to the following reference invoices:
+INV-2070
+```
+
+---
+
 
 # AP/AR Orchestrator
 
