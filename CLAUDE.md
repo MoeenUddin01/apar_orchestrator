@@ -299,9 +299,11 @@ src/
     ├── domain/
     ├── finance/
     ├── database/
+    ├── grc/
     ├── llm/
     └── graph/
 ```
+
 
 ## `api/`
 
@@ -385,6 +387,18 @@ Responsibilities include:
 * Queries
 * Repositories
 * Persistence
+
+---
+
+## `grc/`
+
+Contains Governance, Risk, and Compliance functionality:
+
+* Role-Based Access Control (`rbac.py`)
+* Governance State Models (`models.py`)
+* Financial Policy Rules Engine (`policy_rules.py`)
+* LangGraph Policy & Maker-Checker Nodes (`nodes.py`)
+
 
 Database access should not be scattered throughout LangGraph nodes.
 

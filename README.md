@@ -19,8 +19,11 @@ The architecture strictly enforces separation of concerns:
 *   `src/domain/` - Pure Pydantic schemas representing core financial entities.
 *   `src/finance/` - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, and HITL routing policies.
 *   `src/graph/` - LangGraph state machine definitions, nodes, and conditional edge logic for AP and AR.
+*   `src/grc/` - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
 *   `src/llm/` - **Probabilistic boundary**: contains LLM prompt templates and structured output wrappers.
+*   `spec/GRC/` - Specifications for Governance, Risk, Compliance, Audit Trails, and Implementation Phases.
 *   `tests/` - Unit and integration tests (Pytest).
+
 
 ---
 
@@ -66,7 +69,9 @@ The service exposes the following domain-driven endpoints:
 *   `POST /ap/process-invoice` — Ingests a new vendor invoice and initiates the LangGraph execution.
 *   `GET /ap/{workflow_id}/state` — Retrieves the current state of a paused AP execution.
 *   `POST /ap/{workflow_id}/resume` — Injects executive approval (APPROVE/REJECT) to a paused AP execution.
+*   `POST /governance/decide` — Submits a Maker-Checker approval or rejection decision enforced via RBAC.
 *(The equivalent routes exist for AR at `/ar/process-payment`, `/ar/{workflow_id}/state`, etc.)*
+
 
 **Database Seeding & Querying:**
 The application connects to a Supabase PostgreSQL instance. We established the schema using `Base.metadata.create_all` and seeded it using `scripts/setup_postgres.py` with both edge-case test rows and batch CSV data.
