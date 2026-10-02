@@ -13,15 +13,15 @@ The AP/AR Orchestrator has been successfully implemented as an asynchronous, gra
 
 **Final Directory Structure Summary:**
 The architecture strictly enforces separation of concerns:
-*   `src/api/` - FastAPI routing and endpoints.
-*   `src/core/` - Application config and centralized logging.
+*   `src/api/` - FastAPI routing and endpoints (AP, AR, Governance, and `risk.py` endpoints, with `risk_apis.py` for external vendor screening).
+*   `src/core/` - Application config, centralized logging, and `src/core/security/sanitization.py` for prompt injection defense & input sanitization.
 *   `src/database/` - SQLAlchemy models, async connections, and repository patterns.
-*   `src/domain/` - Pure Pydantic schemas representing core financial entities.
-*   `src/finance/` - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, and HITL routing policies.
-*   `src/graph/` - LangGraph state machine definitions, nodes, and conditional edge logic for AP and AR.
+*   `src/domain/` - Pure Pydantic schemas representing core financial entities and `risk_state.py` for risk tracking.
+*   `src/finance/` - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, HITL routing policies, and `risk_scoring.py` for fraud detection, duplicate invoice checking, and transaction anomaly scoring.
+*   `src/graph/` - LangGraph state machine definitions, nodes, and `src/graph/shared/nodes/risk_assessment.py` for shared risk evaluation.
 *   `src/grc/` - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
-*   `src/llm/` - **Probabilistic boundary**: contains LLM prompt templates and structured output wrappers.
-*   `spec/GRC/` - Specifications for Governance, Risk, Compliance, Audit Trails, and Implementation Phases.
+*   `src/llm/` - **Probabilistic boundary**: contains LLM prompt templates, structured output wrappers, and `validation.py` for deterministic extraction cross-checking.
+*   `spec/GRC/` - Architecture specifications and implementation plans (`01_Governance.md`, `02_Risk.md`, `plan_02_risk.md`, `03_Compliance.md`, `04_Audit_Trail.md`, `05_Implementation_Phases.md`).
 *   `tests/` - Unit and integration tests (Pytest).
 
 
@@ -70,6 +70,8 @@ The service exposes the following domain-driven endpoints:
 *   `GET /ap/{workflow_id}/state` — Retrieves the current state of a paused AP execution.
 *   `POST /ap/{workflow_id}/resume` — Injects executive approval (APPROVE/REJECT) to a paused AP execution.
 *   `POST /governance/decide` — Submits a Maker-Checker approval or rejection decision enforced via RBAC.
+*   `POST /risk/evaluate` — Evaluates instant risk metrics, prompt injection checks, and fraud scoring on transaction payloads.
+*   `GET /risk/assessments/{workflow_id}` — Retrieves structured risk state, flags, and recommended actions for a workflow thread.
 *(The equivalent routes exist for AR at `/ar/process-payment`, `/ar/{workflow_id}/state`, etc.)*
 
 
@@ -90,6 +92,20 @@ Crucially, testing infrastructure has been isolated using `poolclass=NullPool` o
 *   **AR - Full Payment:** Validates exact payment application against outstanding DB invoices.
 *   **AR - Partial Payment:** Confirms partial balance retention routes strictly to `COMPLETED` without marking the underlying invoice fully paid.
 *   **AR - Overdue:** Triggers overdue LLM correspondence and halts for HITL review.
+*   **GRC - Governance & RBAC:** `test_governance.py`. Enforces role permissions (Maker, Checker, Admin, Auditor) and Maker-Checker decision submitting.
+*   **GRC - Risk & Security Management:** `test_risk_management.py` (16 unit tests). Validates prompt injection sanitization, duplicate invoice detection, bank modification alerts, transaction anomaly scoring, LLM line item math checks, external risk API fallbacks, and node execution.
+
+---
+
+## 5. Governance, Risk & Compliance (GRC) Architecture
+The system incorporates an enterprise GRC layer structured into modular security, operational, and governance boundaries:
+
+1. **Governance & RBAC (`src/grc/`)**: Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles. Manages Maker-Checker approval nodes and REST decision endpoints.
+2. **Security & Input Sanitization (`src/core/security/sanitization.py`)**: Strips control characters, script/style tags, and null bytes. Detects prompt injection signatures (instruction override, role manipulation, secret revelation, approval bypass) with word-boundary false-positive protection.
+3. **Operational Risk Engine (`src/finance/risk_scoring.py`)**: Rule-based detection for exact vendor+invoice duplicate matches, vendor bank account modification flags (`VERIFY_BANK_ACCOUNT_BEFORE_PAYMENT`), transaction statistical anomaly scoring, and high-value threshold alerts.
+4. **AI Extraction Validation (`src/llm/validation.py`)**: Deterministically cross-checks line item calculations ($\text{qty} \times \text{unit\_price} = \text{total}$), line item sums vs declared totals, subtotal/tax math, currency consistency, and required fields. Prevents LLM outputs from overriding deterministic math.
+5. **External Vendor Risk Client (`src/api/integrations/risk_apis.py`)**: External sanctions and compliance watchlist screening interface with timeout/error fallback producing `EXTERNAL_RISK_API_UNAVAILABLE` flags.
+6. **Shared Risk Assessment Node (`src/graph/shared/nodes/risk_assessment.py`)**: LangGraph node aggregating risk flags and determining workflow recommendations (`CONTINUE`, `MONITOR`, `HUMAN_REVIEW_RECOMMENDED`, `BLOCK_UNTIL_AUTHORIZED`). The node flags risks without directly approving or rejecting transactions, preserving Maker-Checker governance boundaries.
 
 
 ---
