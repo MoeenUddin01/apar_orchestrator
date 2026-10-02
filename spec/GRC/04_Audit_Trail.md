@@ -20,15 +20,15 @@ The system captures granular data at multiple levels: Workflow Events, Node Tran
 }
 ```
 **Implementation Files**:
-- `src/domain/audit_schema.py`: Pydantic models defining standard audit events.
+- [`src/domain/audit_schema.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/audit_schema.py): Pydantic models defining standard audit events.
 
 ## 3. Storage and Immutability
 Logs are emitted asynchronously to a centralized, append-only datastore. To guarantee immutability, each log entry contains a cryptographic hash of its contents combined with the hash of the previous event.
 **Implementation Files**:
-- `src/database/audit_repository.py`: DB interactions for saving append-only logs.
-- `src/core/hashing.py`: Utilities for calculating cryptographic hashes.
+- [`src/database/audit_repository.py`](file:///home/moeen/projects/apar_orchestrator/src/database/audit_repository.py): DB interactions for saving append-only logs.
+- [`src/core/hashing.py`](file:///home/moeen/projects/apar_orchestrator/src/core/hashing.py): Utilities for calculating cryptographic hashes.
 
 ## 4. LangGraph Implementation
 Utilize LangGraph callbacks or dedicated nodes that hook into the graph execution to emit standard audit events without cluttering the business logic inside the nodes.
 **Implementation Files**:
-- `src/graph/shared/callbacks/audit_logger.py`: LangGraph listeners that automatically trigger during state transitions.
+- [`src/graph/shared/callbacks/audit_logger.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/callbacks/audit_logger.py): LangGraph listeners that automatically trigger during state transitions.

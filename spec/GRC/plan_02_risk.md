@@ -18,13 +18,13 @@ Key Objectives:
 
 | Component | Target File Path | Purpose |
 | :--- | :--- | :--- |
-| **Risk State Schemas** | `src/domain/risk_state.py` | Pydantic schemas (`RiskLevel`, `RiskFlag`, `RiskScore`, `RiskAssessmentResult`). |
-| **Input Sanitization** | `src/core/security/sanitization.py` | Defense against prompt injections and adversarial inputs. |
-| **Operational Risk Engine** | `src/finance/risk_scoring.py` | Rule-based fraud detection, duplicate invoice checks, and anomaly scoring. |
-| **External Risk API** | `src/api/integrations/risk_apis.py` | External vendor dynamic risk profile lookup service client. |
-| **LLM Risk & Validation** | `src/llm/validation.py` | Secondary validation checks to prevent hallucinations and cross-reference data. |
-| **Graph Node** | `src/graph/shared/nodes/risk_assessment.py` | LangGraph `Risk_Assessment` node executing risk evaluation and updating state. |
-| **REST API Routes** | `src/api/routes/risk.py` | REST API endpoints for inspecting risk flags and scores (`GET /risk/assessments`). |
+| **Risk State Schemas** | [`src/domain/risk_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/risk_state.py) | Pydantic schemas (`RiskLevel`, `RiskFlag`, `RiskScore`, `RiskAssessmentResult`). |
+| **Input Sanitization** | [`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py) | Defense against prompt injections and adversarial inputs. |
+| **Operational Risk Engine** | [`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py) | Rule-based fraud detection, duplicate invoice checks, and anomaly scoring. |
+| **External Risk API** | [`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py) | External vendor dynamic risk profile lookup service client. |
+| **LLM Risk & Validation** | [`src/llm/validation.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/validation.py) | Secondary validation checks to prevent hallucinations and cross-reference data. |
+| **Graph Node** | [`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py) | LangGraph `Risk_Assessment` node executing risk evaluation and updating state. |
+| **REST API Routes** | [`src/api/routes/risk.py`](file:///home/moeen/projects/apar_orchestrator/src/api/routes/risk.py) | REST API endpoints for inspecting risk flags and scores (`GET /risk/assessments`). |
 | **Test Suite** | `tests/unit/test_risk_management.py` | Unit tests covering sanitization, scoring, hallucination defense, and node execution. |
 
 ---
@@ -32,7 +32,7 @@ Key Objectives:
 ## 3. Step-by-Step Execution Plan
 
 ### Step 1: Define Risk Data Schemas
-- **File**: `src/domain/risk_state.py`
+- **File**: [`src/domain/risk_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/risk_state.py)
 - **Tasks**:
   - Define `RiskLevel` Enum (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
   - Define `RiskFlag` Pydantic model (`code`, `category`, `message`, `severity`).
@@ -40,13 +40,13 @@ Key Objectives:
   - Define `RiskAssessmentResult` Pydantic model for graph state updates.
 
 ### Step 2: Implement Input Sanitization & Security Middleware
-- **File**: `src/core/security/sanitization.py`
+- **File**: [`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py)
 - **Tasks**:
   - Implement `sanitize_input(text: str) -> str` to strip control characters and prompt injection signatures.
   - Implement pattern detection (`detect_prompt_injection(text: str) -> bool`) for adversarial prompt overrides.
 
 ### Step 3: Implement Financial & Operational Risk Scoring Engine
-- **File**: `src/finance/risk_scoring.py`
+- **File**: [`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py)
 - **Tasks**:
   - Implement `check_duplicate_invoice(invoice_number: str, vendor_id: str, history: List[dict]) -> Optional[RiskFlag]`.
   - Implement `check_vendor_bank_change(vendor_id: str, new_bank_account: str, baseline_bank_account: str) -> Optional[RiskFlag]`.
@@ -54,24 +54,24 @@ Key Objectives:
   - Implement unified `evaluate_operational_risk(transaction_data: dict) -> RiskScore`.
 
 ### Step 4: Implement AI Hallucination & Validation Layer
-- **File**: `src/llm/validation.py`
+- **File**: [`src/llm/validation.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/validation.py)
 - **Tasks**:
   - Implement `validate_llm_extraction(extracted_data: dict, deterministic_context: dict) -> Tuple[bool, List[str]]`.
   - Add cross-referencing utilities (e.g. verify extracted total equals line items sum within tolerance).
 
 ### Step 5: Implement Vendor Risk Profile API Integration
-- **File**: `src/api/integrations/risk_apis.py`
+- **File**: [`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py)
 - **Tasks**:
   - Create `VendorRiskClient` to simulate dynamic risk score retrieval from external risk providers.
 
 ### Step 6: Build LangGraph `Risk_Assessment` Shared Node
-- **File**: `src/graph/shared/nodes/risk_assessment.py`
+- **File**: [`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py)
 - **Tasks**:
   - Implement `risk_assessment_node(state: dict) -> dict` integrating operational checks, sanitization, and state updates.
   - Set `RiskScore` and `RiskFlags` in graph state. Trigger human approval recommendation if `RiskLevel` is `HIGH` or `CRITICAL`.
 
 ### Step 7: Expose REST API Endpoints
-- **File**: `src/api/routes/risk.py`
+- **File**: [`src/api/routes/risk.py`](file:///home/moeen/projects/apar_orchestrator/src/api/routes/risk.py)
 - **Tasks**:
   - Endpoint `POST /api/v1/risk/evaluate`: Run instant risk evaluation on invoice/payment data.
   - Endpoint `GET /api/v1/risk/assessments/{thread_id}`: Retrieve risk assessment state for a graph run.

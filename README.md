@@ -13,15 +13,15 @@ The AP/AR Orchestrator has been successfully implemented as an asynchronous, gra
 
 **Final Directory Structure Summary:**
 The architecture strictly enforces separation of concerns:
-*   `src/api/` - FastAPI routing and endpoints (AP, AR, Governance, and `risk.py` endpoints, with `risk_apis.py` for external vendor screening).
-*   `src/core/` - Application config, centralized logging, and `src/core/security/sanitization.py` for prompt injection defense & input sanitization.
-*   `src/database/` - SQLAlchemy models, async connections, and repository patterns.
-*   `src/domain/` - Pure Pydantic schemas representing core financial entities and `risk_state.py` for risk tracking.
-*   `src/finance/` - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, HITL routing policies, and `risk_scoring.py` for fraud detection, duplicate invoice checking, and transaction anomaly scoring.
-*   `src/graph/` - LangGraph state machine definitions, nodes, and `src/graph/shared/nodes/risk_assessment.py` for shared risk evaluation.
-*   `src/grc/` - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
-*   `src/llm/` - **Probabilistic boundary**: contains LLM prompt templates, structured output wrappers, and `validation.py` for deterministic extraction cross-checking.
-*   `spec/GRC/` - Architecture specifications and implementation plans (`01_Governance.md`, `02_Risk.md`, `plan_02_risk.md`, `03_Compliance.md`, `04_Audit_Trail.md`, `05_Implementation_Phases.md`).
+*   [`src/api/`](file:///home/moeen/projects/apar_orchestrator/src/api/) - FastAPI routing and endpoints (AP, AR, Governance, and `risk.py` endpoints, with `risk_apis.py` for external vendor screening).
+*   [`src/core/`](file:///home/moeen/projects/apar_orchestrator/src/core/) - Application config, centralized logging, and [`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py) for prompt injection defense & input sanitization.
+*   [`src/database/`](file:///home/moeen/projects/apar_orchestrator/src/database/) - SQLAlchemy models, async connections, and repository patterns.
+*   [`src/domain/`](file:///home/moeen/projects/apar_orchestrator/src/domain/) - Pure Pydantic schemas representing core financial entities and `risk_state.py` for risk tracking.
+*   [`src/finance/`](file:///home/moeen/projects/apar_orchestrator/src/finance/) - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, HITL routing policies, and `risk_scoring.py` for fraud detection, duplicate invoice checking, and transaction anomaly scoring.
+*   [`src/graph/`](file:///home/moeen/projects/apar_orchestrator/src/graph/) - LangGraph state machine definitions, nodes, and [`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py) for shared risk evaluation.
+*   [`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/) - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
+*   [`src/llm/`](file:///home/moeen/projects/apar_orchestrator/src/llm/) - **Probabilistic boundary**: contains LLM prompt templates, structured output wrappers, and `validation.py` for deterministic extraction cross-checking.
+*   [`spec/GRC/`](file:///home/moeen/projects/apar_orchestrator/spec/GRC/) - Architecture specifications and implementation plans (`01_Governance.md`, `02_Risk.md`, `plan_02_risk.md`, `03_Compliance.md`, `04_Audit_Trail.md`, `05_Implementation_Phases.md`).
 *   `tests/` - Unit and integration tests (Pytest).
 
 
@@ -53,12 +53,12 @@ The workflows utilize LangGraph's `MemorySaver()` checkpointer. During graph com
 To prevent the LLM from hallucinating financial figures or autonomously authorizing payments, a hard barrier exists between probabilistic reasoning and deterministic execution.
 
 **Probabilistic LLM Boundaries:**
-1.  **Document Extraction**: `src/llm/extractors/invoice_extractor.py` and `remittance_extractor.py`. LLMs are restricted to parsing raw text/JSON into Pydantic models. They perform NO calculations. (Regex fallbacks exist for resilience).
-2.  **Communication Drafts**: `src/llm/generators/communications.py`. LLMs draft the text for discrepancy notices and overdue reminders using *deterministic facts* injected into prompts as context.
+1.  **Document Extraction**: [`src/llm/extractors/invoice_extractor.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/extractors/invoice_extractor.py) and `remittance_extractor.py`. LLMs are restricted to parsing raw text/JSON into Pydantic models. They perform NO calculations. (Regex fallbacks exist for resilience).
+2.  **Communication Drafts**: [`src/llm/generators/communications.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/generators/communications.py). LLMs draft the text for discrepancy notices and overdue reminders using *deterministic facts* injected into prompts as context.
 
 **Deterministic Math Boundaries:**
-1.  **3-Way Matching**: `src/finance/matching.py`. Evaluates quantity, unit price, totals, and tolerances using standard Python floating-point logic. 
-2.  **Routing & HITL Rules**: `src/finance/routing.py`. Dictates the exact threshold logic (e.g., invoices > $10,000 or mismatch variance > $10.00).
+1.  **3-Way Matching**: [`src/finance/matching.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/matching.py). Evaluates quantity, unit price, totals, and tolerances using standard Python floating-point logic. 
+2.  **Routing & HITL Rules**: [`src/finance/routing.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/routing.py). Dictates the exact threshold logic (e.g., invoices > $10,000 or mismatch variance > $10.00).
 *The LLM never calls these functions and never influences the routing decision output.*
 
 ---
@@ -76,7 +76,7 @@ The service exposes the following domain-driven endpoints:
 
 
 **Database Seeding & Querying:**
-The application connects to a Supabase PostgreSQL instance. We established the schema using `Base.metadata.create_all` and seeded it using `scripts/setup_postgres.py` with both edge-case test rows and batch CSV data.
+The application connects to a Supabase PostgreSQL instance. We established the schema using `Base.metadata.create_all` and seeded it using [`scripts/setup_postgres.py`](file:///home/moeen/projects/apar_orchestrator/scripts/setup_postgres.py) with both edge-case test rows and batch CSV data.
 Repository classes (`ap_repository.py` and `ar_repository.py`) execute non-blocking queries utilizing SQLAlchemy's `AsyncSessionLocal` to fetch required truth records (Purchase Orders, Goods Receipts, and Open Invoices) during graph traversal.
 
 ---
@@ -100,12 +100,12 @@ Crucially, testing infrastructure has been isolated using `poolclass=NullPool` o
 ## 5. Governance, Risk & Compliance (GRC) Architecture
 The system incorporates an enterprise GRC layer structured into modular security, operational, and governance boundaries:
 
-1. **Governance & RBAC (`src/grc/`)**: Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles. Manages Maker-Checker approval nodes and REST decision endpoints.
-2. **Security & Input Sanitization (`src/core/security/sanitization.py`)**: Strips control characters, script/style tags, and null bytes. Detects prompt injection signatures (instruction override, role manipulation, secret revelation, approval bypass) with word-boundary false-positive protection.
-3. **Operational Risk Engine (`src/finance/risk_scoring.py`)**: Rule-based detection for exact vendor+invoice duplicate matches, vendor bank account modification flags (`VERIFY_BANK_ACCOUNT_BEFORE_PAYMENT`), transaction statistical anomaly scoring, and high-value threshold alerts.
-4. **AI Extraction Validation (`src/llm/validation.py`)**: Deterministically cross-checks line item calculations ($\text{qty} \times \text{unit\_price} = \text{total}$), line item sums vs declared totals, subtotal/tax math, currency consistency, and required fields. Prevents LLM outputs from overriding deterministic math.
-5. **External Vendor Risk Client (`src/api/integrations/risk_apis.py`)**: External sanctions and compliance watchlist screening interface with timeout/error fallback producing `EXTERNAL_RISK_API_UNAVAILABLE` flags.
-6. **Shared Risk Assessment Node (`src/graph/shared/nodes/risk_assessment.py`)**: LangGraph node aggregating risk flags and determining workflow recommendations (`CONTINUE`, `MONITOR`, `HUMAN_REVIEW_RECOMMENDED`, `BLOCK_UNTIL_AUTHORIZED`). The node flags risks without directly approving or rejecting transactions, preserving Maker-Checker governance boundaries.
+1. **Governance & RBAC ([`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/))**: Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles. Manages Maker-Checker approval nodes and REST decision endpoints.
+2. **Security & Input Sanitization ([`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py))**: Strips control characters, script/style tags, and null bytes. Detects prompt injection signatures (instruction override, role manipulation, secret revelation, approval bypass) with word-boundary false-positive protection.
+3. **Operational Risk Engine ([`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py))**: Rule-based detection for exact vendor+invoice duplicate matches, vendor bank account modification flags (`VERIFY_BANK_ACCOUNT_BEFORE_PAYMENT`), transaction statistical anomaly scoring, and high-value threshold alerts.
+4. **AI Extraction Validation ([`src/llm/validation.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/validation.py))**: Deterministically cross-checks line item calculations ($\text{qty} \times \text{unit\_price} = \text{total}$), line item sums vs declared totals, subtotal/tax math, currency consistency, and required fields. Prevents LLM outputs from overriding deterministic math.
+5. **External Vendor Risk Client ([`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py))**: External sanctions and compliance watchlist screening interface with timeout/error fallback producing `EXTERNAL_RISK_API_UNAVAILABLE` flags.
+6. **Shared Risk Assessment Node ([`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py))**: LangGraph node aggregating risk flags and determining workflow recommendations (`CONTINUE`, `MONITOR`, `HUMAN_REVIEW_RECOMMENDED`, `BLOCK_UNTIL_AUTHORIZED`). The node flags risks without directly approving or rejecting transactions, preserving Maker-Checker governance boundaries.
 
 
 ---
@@ -478,7 +478,7 @@ This design makes financial behavior deterministic and easier to test and audit.
 | Configuration | Environment variables |
 | Workflow state | LangGraph `FinanceState` |
 
-The final dependency list will be defined in `pyproject.toml`.
+The final dependency list will be defined in [`pyproject.toml`](file:///home/moeen/projects/apar_orchestrator/pyproject.toml).
 
 ---
 
