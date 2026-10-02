@@ -26,3 +26,4 @@ class FinanceState(TypedDict, total=False):
     hitl_decision: Optional[Dict[str, Any]]
     hitl_input: Optional[Dict[str, Any]]
     drafted_communications: Optional[List[Dict[str, Any]]]
+    governance_status: Optional[Dict[str, Any]]
