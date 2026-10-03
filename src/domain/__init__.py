@@ -1,3 +1,4 @@
+from src.domain.audit_schema import ActorType, AuditEvent, EventType
 from src.domain.compliance_state import (
     ComplianceRationale,
     ReconciliationItem,
@@ -26,4 +27,8 @@ __all__ = [
     "ReconciliationStatus",
     "ReconciliationItem",
     "ReconciliationResult",
+    "ActorType",
+    "EventType",
+    "AuditEvent",
 ]
+
