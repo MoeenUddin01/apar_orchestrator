@@ -1,35 +1,70 @@
-# GRC & Audit Trail Implementation Phases
+# GRC & Audit Trail Implementation Roadmap
 
-## Phase 1: Foundation & Audit Logging
-**Goal**: Establish the base infrastructure for capturing immutable logs of the LangGraph execution.
-- [ ] Define the unified audit log JSON schema in [`src/domain/audit_schema.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/audit_schema.py).
-- [ ] Set up append-only log storage operations in [`src/database/audit_repository.py`](file:///home/moeen/projects/apar_orchestrator/src/database/audit_repository.py).
-- [ ] Implement cryptographic hashing for log integrity in [`src/core/hashing.py`](file:///home/moeen/projects/apar_orchestrator/src/core/hashing.py).
-- [ ] Implement LangGraph execution listeners (callbacks) in [`src/graph/shared/callbacks/audit_logger.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/callbacks/audit_logger.py).
+This document outlines the phased implementation strategy for the Governance, Risk, Compliance (GRC), and Audit Trail architecture within the LangGraph AP/AR Orchestrator. 
 
-## Phase 2: Data Privacy & Compliance Middleware
-**Goal**: Secure data flowing in and out of the graph and LLMs.
-- [ ] Implement PII detection and redaction utilities in [`src/core/security/redaction.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/redaction.py).
-- [ ] Integrate redaction middleware before LLM calls in [`src/llm/middleware.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/middleware.py).
-- [ ] Add explainability and compliance rationale fields to graph state in [`src/domain/compliance_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/compliance_state.py).
-- [ ] Set up data retention and cleanup scripts for checkpointers in [`src/database/retention_jobs.py`](file:///home/moeen/projects/apar_orchestrator/src/database/retention_jobs.py).
+---
 
-## Phase 3: Governance & Role-Based Routing
-**Goal**: Implement Maker-Checker and human-in-the-loop workflows.
-- [ ] Define RBAC schemas and user role mockups in [`src/core/security/rbac.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/rbac.py).
-- [ ] Build Maker-Checker nodes for AP and AR graphs in [`src/graph/ap/nodes/maker_checker.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/ap/nodes/maker_checker.py) and [`src/graph/ar/nodes/maker_checker.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/ar/nodes/maker_checker.py).
-- [ ] Implement deterministic policy rules and thresholds in [`src/finance/policy_rules.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/policy_rules.py).
-- [ ] Add endpoints for Checkers to approve/reject actions in [`src/api/routes/governance.py`](file:///home/moeen/projects/apar_orchestrator/src/api/routes/governance.py).
+## 🎯 Phase 1: Foundation & Audit Logging
+**Objective**: Establish the base infrastructure for capturing immutable, cryptographically verifiable logs of all LangGraph executions.  
+**Status**: ✅ Completed
 
-## Phase 4: Risk Mitigation & Anomaly Detection
-**Goal**: Protect the system against operational and technical risks.
-- [ ] Create the risk state schemas in [`src/domain/risk_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/risk_state.py).
-- [ ] Implement the core risk scoring engine in [`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py).
-- [ ] Build the `Risk_Assessment` node in [`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py) and add it to the AP/AR graphs.
-- [ ] Add input sanitization middleware to prevent prompt injection in [`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py).
+| Status | Task / Component | Target File |
+|:---:|---|---|
+| ✅ | Define unified audit log JSON schema | `src/domain/audit_schema.py` |
+| ✅ | Set up append-only log storage operations | `src/database/audit_repository.py` |
+| ✅ | Implement cryptographic hashing for integrity | `src/core/hashing.py` |
+| ✅ | Implement LangGraph execution callbacks | `src/graph/shared/callbacks/audit_logger.py` |
 
-## Phase 5: Monitoring, Reporting & Refinement
-**Goal**: Surface GRC data for stakeholders.
-- [ ] Create audit trail query API endpoints for reports in [`src/api/routes/audit.py`](file:///home/moeen/projects/apar_orchestrator/src/api/routes/audit.py).
-- [ ] Develop database queries for common compliance reports in [`src/database/audit_repository.py`](file:///home/moeen/projects/apar_orchestrator/src/database/audit_repository.py).
-- [ ] Conduct a final end-to-end security and compliance review of the orchestration system.
+---
+
+## 🔒 Phase 2: Data Privacy & Compliance Middleware
+**Objective**: Secure sensitive financial data flowing in and out of the graph and external LLM providers.  
+**Status**: ✅ Completed
+
+| Status | Task / Component | Target File |
+|:---:|---|---|
+| ✅ | Implement PII detection and redaction utilities | `src/core/security/redaction.py` |
+| ✅ | Integrate redaction middleware for LLM calls | `src/llm/middleware.py` |
+| ✅ | Add compliance rationale to graph state | `src/domain/compliance_state.py` |
+| ✅ | Set up data retention and cleanup scripts | `src/database/retention_jobs.py` |
+
+---
+
+## ⚖️ Phase 3: Governance & Role-Based Routing
+**Objective**: Implement strict authorization policies and Maker-Checker (human-in-the-loop) workflows.  
+**Status**: ✅ Completed
+
+| Status | Task / Component | Target File |
+|:---:|---|---|
+| ✅ | Define RBAC schemas and user role mockups | `src/core/security/rbac.py` |
+| ✅ | Build Maker-Checker nodes for AP and AR graphs | `src/graph/*/nodes/maker_checker.py` |
+| ✅ | Implement deterministic policy rules & thresholds | `src/finance/policy_rules.py` |
+| ✅ | Add API endpoints for Checker approvals | `src/api/routes/governance.py` |
+
+---
+
+## 🛡️ Phase 4: Risk Mitigation & Anomaly Detection
+**Objective**: Protect the system against operational, financial, and technical risks (including Prompt Injections).  
+**Status**: ✅ Completed
+
+| Status | Task / Component | Target File |
+|:---:|---|---|
+| ✅ | Create risk state schemas | `src/domain/risk_state.py` |
+| ✅ | Implement the core risk scoring engine | `src/finance/risk_scoring.py` |
+| ✅ | Build the Risk Assessment graph node | `src/graph/shared/nodes/risk_assessment.py` |
+| ✅ | Add input sanitization middleware | `src/core/security/sanitization.py` |
+
+---
+
+## 📊 Phase 5: Monitoring, Reporting & Refinement
+**Objective**: Surface actionable GRC data for stakeholders, auditors, and management.  
+**Status**: ⏳ In Progress
+
+| Status | Task / Component | Target File |
+|:---:|---|---|
+| ✅ | Create audit trail API endpoints for reports | `src/api/routes/audit.py` |
+| ✅ | Develop database queries for compliance reports | `src/database/audit_repository.py` |
+| ⬜ | Conduct final end-to-end security & compliance review | *Cross-cutting* |
+
+---
+> *Note: This roadmap aligns directly with the detailed domain specifications located in the `spec/GRC/` directory.*
