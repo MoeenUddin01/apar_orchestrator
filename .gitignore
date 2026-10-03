@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated GRC documentation files
+docs/grc_flow_explanation.md
+docs/grc_flow.png
+docs/grc_flow.mmd
+docs/puppeteer-config.json
