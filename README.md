@@ -543,12 +543,20 @@ apar-orchestrator/
 ├── README.md
 │
 ├── spec/
-│   ├── phase_1_foundation.md
-│   ├── phase_2_ap_mvp.md
-│   ├── phase_3_ar_mvp.md
-│   ├── phase_4_hitl.md
-│   ├── phase_5_communication.md
-│   └── phase_6_evaluation.md
+│   ├── GRC/
+│   │   ├── 01_Governance.md
+│   │   ├── 02_Risk.md
+│   │   ├── 03_Compliance.md
+│   │   ├── 04_Audit_Trail.md
+│   │   └── 05_Implementation_Phases.md
+│   └── Phases/
+│       ├── 01_Foundation.md
+│       ├── 02_AP_MVP.md
+│       ├── 03_AR_MVP.md
+│       ├── 04_HITL.md
+│       ├── 05_Communication.md
+│       ├── 06_Evaluation.md
+│       └── 07_Database_Integration.md
 │
 ├── src/
 │   └── apar_orchestrator/

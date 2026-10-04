@@ -222,3 +222,9 @@ docs/grc_flow_explanation.md
 docs/grc_flow.png
 docs/grc_flow.mmd
 docs/puppeteer-config.json
+
+# Generated Invoice Intelligence documentation files
+docs/invoice_intelligence_flow_explanation.md
+docs/invoice_intelligence_flow.png
+docs/invoice_intelligence_flow.mmd
+
