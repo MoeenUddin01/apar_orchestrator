@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -18,9 +19,58 @@ class AuditRepository:
 
     def __init__(self, session: Optional[Session] = None):
         self.session = session
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         # In-memory store for fast access and fallback testing
         self._in_memory_events: List[AuditEvent] = []
         self._index_by_id: Dict[str, AuditEvent] = {}
+
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop):
+        """Binds running asyncio event loop for threadsafe async DB commits."""
+        self._loop = loop
+
+    async def _async_log_to_db(self, event: AuditEvent):
+        """Asynchronously persists audit event to PostgreSQL audit_events table."""
+        try:
+            from src.database.connection import AsyncSessionLocal
+            async with AsyncSessionLocal() as session:
+                db_record = AuditEventDB(
+                    event_id=event.event_id,
+                    timestamp=event.timestamp,
+                    workflow_id=event.workflow_id,
+                    correlation_id=event.correlation_id,
+                    actor_type=str(event.actor_type.value if hasattr(event.actor_type, "value") else event.actor_type),
+                    actor_id=event.actor_id,
+                    event_type=str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type),
+                    node_name=event.node_name,
+                    status=event.status,
+                    result=event.result,
+                    summary=event.summary,
+                    evidence_refs=event.evidence_refs,
+                    metadata_json=event.metadata,
+                    previous_hash=event.previous_hash,
+                    event_hash=event.event_hash,
+                )
+                session.add(db_record)
+                await session.commit()
+        except Exception as e:
+            logger.error(f"Failed to async commit audit record to DB: {e}")
+
+    def _save_to_db(self, event: AuditEvent):
+        """Threadsafe dispatch for database persistence."""
+        loop = self._loop
+        if not loop or not loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(self._async_log_to_db(event), loop)
+        else:
+            try:
+                asyncio.run(self._async_log_to_db(event))
+            except Exception as e:
+                logger.error(f"Failed to log event to DB: {e}")
 
     def log_event(self, event: AuditEvent) -> AuditEvent:
         """
@@ -52,7 +102,7 @@ class AuditRepository:
         self._in_memory_events.append(event)
         self._index_by_id[event.event_id] = event
 
-        # 4. Save to DB Session if available
+        # 4. Save to DB Session if available, or dispatch async DB commit
         if self.session:
             try:
                 db_record = AuditEventDB(
@@ -60,9 +110,9 @@ class AuditRepository:
                     timestamp=event.timestamp,
                     workflow_id=event.workflow_id,
                     correlation_id=event.correlation_id,
-                    actor_type=str(event.actor_type),
+                    actor_type=str(event.actor_type.value if hasattr(event.actor_type, "value") else event.actor_type),
                     actor_id=event.actor_id,
-                    event_type=str(event.event_type),
+                    event_type=str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type),
                     node_name=event.node_name,
                     status=event.status,
                     result=event.result,
@@ -78,6 +128,8 @@ class AuditRepository:
                 logger.error(f"Failed to commit audit record to DB: {e}")
                 if self.session:
                     self.session.rollback()
+        else:
+            self._save_to_db(event)
 
         return event
 
