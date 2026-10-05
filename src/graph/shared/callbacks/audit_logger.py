@@ -196,6 +196,7 @@ class AuditLoggerCallbackHandler:
         action: str,  # "REQUESTED", "APPROVED", "REJECTED"
         checker_id: str,
         reason: Optional[str] = None,
+        role: Optional[str] = None,
     ) -> AuditEvent:
         event_type_map = {
             "REQUESTED": EventType.MAKER_CHECKER_REQUESTED,
@@ -203,15 +204,23 @@ class AuditLoggerCallbackHandler:
             "REJECTED": EventType.MAKER_REJECTED,
         }
         ev_type = event_type_map.get(action.upper(), EventType.GOVERNANCE_DECISION)
+        
+        actor_role = role.upper() if role else ("CHECKER" if action != "REQUESTED" else "USER")
+        try:
+            actor_type = ActorType(actor_role)
+        except ValueError:
+            actor_type = ActorType.CHECKER if action != "REQUESTED" else ActorType.USER
+
         event = AuditEvent(
             workflow_id=workflow_id,
-            actor_type=ActorType.CHECKER if action != "REQUESTED" else ActorType.USER,
+            actor_type=actor_type,
             actor_id=checker_id,
             event_type=ev_type,
             node_name="Maker_Checker",
             status=action.upper(),
             result=reason,
-            summary=f"Maker-Checker action {action} by {checker_id}.",
+            summary=f"Maker-Checker action {action} by {checker_id} (Role: {actor_role}).",
+            metadata={"user_role": actor_role, "reason": reason or ""},
         )
         return self.repository.log_event(event)
 

@@ -56,11 +56,13 @@ def maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
     checker_id = hitl_input.get("checker_id", "UNKNOWN_CHECKER")
+    user_role = hitl_input.get("user_role", "CHECKER")
     comments = hitl_input.get("comments", "")
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
 
     existing_gov = state.get("governance_status") or {}
     updated_gov = dict(existing_gov)
+    updated_gov["approved_by_role"] = user_role
     
     if action in ["APPROVE", "APPROVED"]:
         updated_gov["approval_status"] = ApprovalStatus.APPROVED.value
@@ -78,7 +80,8 @@ def maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
         workflow_id=workflow_id,
         action=action if action in ["APPROVED", "REJECTED"] else ("APPROVED" if action == "APPROVE" else "REJECTED"),
         checker_id=checker_id,
-        reason=comments
+        reason=comments,
+        role=user_role
     )
 
     return {
@@ -135,11 +138,13 @@ def ar_maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
     checker_id = hitl_input.get("checker_id", "UNKNOWN_CHECKER")
+    user_role = hitl_input.get("user_role", "CHECKER")
     comments = hitl_input.get("comments", "")
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
 
     existing_gov = state.get("governance_status") or {}
     updated_gov = dict(existing_gov)
+    updated_gov["approved_by_role"] = user_role
     
     if action in ["APPROVE", "APPROVED"]:
         updated_gov["approval_status"] = ApprovalStatus.APPROVED.value
@@ -157,7 +162,8 @@ def ar_maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
         workflow_id=workflow_id,
         action="APPROVED" if action in ["APPROVE", "APPROVED"] else "REJECTED",
         checker_id=checker_id,
-        reason=comments
+        reason=comments,
+        role=user_role
     )
 
     return {

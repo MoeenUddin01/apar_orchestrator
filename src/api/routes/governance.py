@@ -52,6 +52,7 @@ async def submit_governance_decision(
         "hitl_input": {
             "action": payload.decision.value,
             "checker_id": payload.checker_id,
+            "user_role": role.value if hasattr(role, "value") else str(role),
             "comments": payload.comments,
         }
     }

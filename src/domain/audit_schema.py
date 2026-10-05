@@ -11,6 +11,9 @@ class ActorType(str, Enum):
     LLM_AGENT = "LLM_AGENT"
     SERVICE = "SERVICE"
     CHECKER = "CHECKER"
+    ADMIN = "ADMIN"
+    MAKER = "MAKER"
+    AUDITOR = "AUDITOR"
 
 
 class EventType(str, Enum):
