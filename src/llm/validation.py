@@ -25,19 +25,19 @@ def validate_llm_invoice_extraction(
         ]
 
     # Required field presence check
-    required_fields = ["vendor_id", "vendor_name", "invoice_number", "invoice_total", "total_amount"]
-    has_vendor = any(extracted_data.get(k) for k in ["vendor_id", "vendor_name"])
-    has_inv_num = bool(extracted_data.get("invoice_number"))
-    has_total = any(extracted_data.get(k) is not None for k in ["invoice_total", "total_amount", "amount"])
+    has_vendor = any(extracted_data.get(k) for k in ["vendor_id", "vendor_name", "customer_identifier"])
+    has_inv_num = bool(extracted_data.get("invoice_number") or extracted_data.get("referenced_invoices") or extracted_data.get("remittance_id"))
+    has_total = any(extracted_data.get(k) is not None for k in ["invoice_total", "total_amount", "amount", "total_payment"])
 
     if not (has_vendor and has_inv_num and has_total):
         missing = []
         if not has_vendor:
-            missing.append("vendor_id/vendor_name")
+            missing.append("vendor_id/customer_identifier")
         if not has_inv_num:
-            missing.append("invoice_number")
+            missing.append("invoice_number/referenced_invoices")
         if not has_total:
-            missing.append("invoice_total/total_amount")
+            missing.append("invoice_total/total_payment")
+
 
         is_valid = False
         flags.append(

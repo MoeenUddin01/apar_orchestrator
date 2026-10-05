@@ -57,7 +57,8 @@ async def submit_governance_decision(
     }
 
     try:
-        final_state = await target_graph.ainvoke(human_input_update, config=config)
+        await target_graph.aupdate_state(config, human_input_update)
+        final_state = await target_graph.ainvoke(None, config=config)
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail=f"Failed to process governance decision: {str(exc)}"

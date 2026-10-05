@@ -5,20 +5,26 @@ from src.core.security.sanitization import analyze_security_sanitization
 from src.domain.risk_state import RiskAssessmentResult, RiskCategory, RiskFlag, RiskLevel, RiskScore
 from src.finance.risk_scoring import evaluate_operational_risk
 from src.llm.validation import validate_against_deterministic_context, validate_llm_invoice_extraction
+from src.graph.shared.callbacks.audit_logger import default_audit_callback
+
 
 
 def risk_assessment_node(state: Dict[str, Any]) -> Dict[str, Any]:
+
     """
     LangGraph node to assess input security, operational financial risk, LLM extraction accuracy,
     and external vendor sanction risk.
     Updates graph state with risk metrics, flags, security findings, and recommended action.
     """
-    raw_text = state.get("raw_input") or state.get("email_body") or ""
+    raw_text = state.get("raw_input") or state.get("raw_document") or state.get("email_body") or ""
+
     extracted = state.get("extracted_data") or state.get("invoice_data") or {}
 
-    vendor_id = extracted.get("vendor_id") or state.get("vendor_id") or "UNKNOWN_VENDOR"
-    invoice_number = extracted.get("invoice_number") or state.get("invoice_number") or "INV-UNKNOWN"
-    amount = float(extracted.get("invoice_total") or extracted.get("total_amount") or state.get("amount") or 0.0)
+    vendor_id = extracted.get("vendor_id") or extracted.get("customer_identifier") or state.get("vendor_id") or "UNKNOWN_VENDOR"
+    ref_invs = extracted.get("referenced_invoices")
+    invoice_number = extracted.get("invoice_number") or (ref_invs[0] if (ref_invs and isinstance(ref_invs, list)) else None) or state.get("invoice_number") or "INV-UNKNOWN"
+    amount = float(extracted.get("invoice_total") or extracted.get("total_payment") or extracted.get("total_amount") or state.get("amount") or 0.0)
+
 
     current_bank = extracted.get("bank_account") or state.get("bank_account")
     baseline_bank = state.get("baseline_bank_account")
@@ -148,7 +154,19 @@ def risk_assessment_node(state: Dict[str, Any]) -> Dict[str, Any]:
     updated_state["assessment_timestamp"] = assessment_timestamp
     updated_state["recommended_action"] = recommended_action
     updated_state["requires_human_review"] = requires_approval
-    if sanitized_text:
+    if sanitized_text and not updated_state.get("sanitized_input"):
         updated_state["sanitized_input"] = sanitized_text
 
+
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    default_audit_callback.on_risk_assessment(
+        workflow_id=workflow_id,
+        risk_level=highest_severity.value,
+        risk_flags=[f.code for f in all_flags],
+        action=recommended_action,
+        metadata={"risk_score": round(final_score_value, 2)}
+    )
+
     return updated_state
+
+

@@ -27,3 +27,23 @@ class FinanceState(TypedDict, total=False):
     hitl_input: Optional[Dict[str, Any]]
     drafted_communications: Optional[List[Dict[str, Any]]]
     governance_status: Optional[Dict[str, Any]]
+
+    # Risk Assessment Persistence
+    risk_assessment: Optional[Dict[str, Any]]
+    risk_score: Optional[float]
+    risk_level: Optional[str]
+    risk_flags: Optional[List[Dict[str, Any]]]
+    validation_results: Optional[Dict[str, Any]]
+    security_findings: Optional[List[str]]
+    assessment_timestamp: Optional[str]
+    recommended_action: Optional[str]
+    requires_human_review: Optional[bool]
+    sanitized_input: Optional[str]
+
+    # Compliance & Reconciliation Persistence
+    reconciliation_result: Optional[Dict[str, Any]]
+    is_reconciled: Optional[bool]
+    compliance_rationale: Optional[Dict[str, Any]]
+    
+    # Privacy / Data Security
+    redaction_result: Optional[Dict[str, Any]]

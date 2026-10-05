@@ -32,20 +32,37 @@ def validate_post_execution_policy(
     """
     violations = []
     requires_approval = False
-
     extracted_data = state.get("extracted_data") or {}
-    total_amount = float(extracted_data.get("total_amount") or extracted_data.get("amount") or 0.0)
+    total_amount = float(
+        extracted_data.get("invoice_total")
+        or extracted_data.get("total_payment")
+        or extracted_data.get("total_amount")
+        or extracted_data.get("amount")
+        or 0.0
+    )
+
+
+
 
     # Threshold Policy Check
     if total_amount > threshold:
         requires_approval = True
         violations.append(f"High-value transaction: Amount ${total_amount:,.2f} exceeds policy limit ${threshold:,.2f}.")
 
+    # Risk Policy Check
+    risk_level = state.get("risk_level")
+    risk_assessment = state.get("risk_assessment") or {}
+    requires_human_review = state.get("requires_human_review") or risk_assessment.get("requires_manual_approval")
+    if risk_level in ["HIGH", "CRITICAL"] or requires_human_review:
+        requires_approval = True
+        violations.append(f"Risk policy threshold: Risk level '{risk_level or 'HIGH'}' requires Checker authorization.")
+
     # Validation errors check
     validation_errors = state.get("validation_errors") or []
     if validation_errors:
         requires_approval = True
         violations.extend([f"Validation error: {err}" for err in validation_errors])
+
 
     passed = len(violations) == 0
     return PolicyResult(
