@@ -22,7 +22,9 @@ The architecture strictly enforces separation of concerns:
 *   [`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/) - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
 *   [`src/llm/`](file:///home/moeen/projects/apar_orchestrator/src/llm/) - **Probabilistic boundary**: contains LLM prompt templates, structured output wrappers, and `validation.py` for deterministic extraction cross-checking.
 *   [`spec/GRC/`](file:///home/moeen/projects/apar_orchestrator/spec/GRC/) - Architecture specifications and implementation plans (`01_Governance.md`, `02_Risk.md`, `plan_02_risk.md`, `03_Compliance.md`, `04_Audit_Trail.md`, `05_Implementation_Phases.md`).
+*   [`spec/Invoice_Intelligence/`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/) - Ingestion, OCR, and Invoice Intelligence specifications (`01_Architecture.md` to `10_Implementation_Plan.md`).
 *   `tests/` - Unit and integration tests (Pytest).
+
 
 
 ---
@@ -107,6 +109,19 @@ The system incorporates an enterprise GRC layer structured into modular security
 5. **External Vendor Risk Client ([`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py))**: External sanctions and compliance watchlist screening interface.
 6. **Shared Risk Assessment Node ([`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py))**: LangGraph node aggregating risk flags and determining workflow recommendations (`CONTINUE`, `MONITOR`, `HUMAN_REVIEW_RECOMMENDED`, `BLOCK_UNTIL_AUTHORIZED`).
 7. **Compliance & Data Privacy Layer**: Ensures regulatory data minimization and explainability via regex-based PII redaction middleware (`src/llm/middleware.py`), financial deterministic reconciliation (`src/finance/reconciliation.py`), and automated TTL state cleanup jobs (`src/database/retention_jobs.py`). Mandates structured rationales for all decisions (`src/domain/compliance_state.py`).
+
+---
+
+## 5.1 Invoice Intelligence Architecture (`spec/Invoice_Intelligence/`)
+The **Invoice Intelligence** specification framework defines the intelligent ingestion, document storage abstraction, OCR, multilingual normalization, confidence evaluation, and HITL data correction layer preceding deterministic validation:
+
+1. **Document Storage Abstraction ([`02_Document_Input.md`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/02_Document_Input.md))**: Prevents state bloat by storing raw binary PDFs/images out-of-state via `DocumentStorageInterface`, passing lightweight `document_id` references inside `FinanceState`.
+2. **Pre-Validation Multilingual Normalization ([`03_OCR_Multilingual_Extraction.md`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/03_OCR_Multilingual_Extraction.md))**: Converts Arabic-Indic digits (`١٢٣` $\rightarrow$ `123`), localized decimal marks (`12.345,67`), and localized dates into ASCII primitives **BEFORE** downstream deterministic validation.
+3. **Canonical Data Contract ([`04_Canonical_Invoice_Schema.md`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/04_Canonical_Invoice_Schema.md))**: Enforces strict compatibility with `ExtractedInvoice` (`invoice_number`, `vendor_id`, `po_number`, `invoice_total`, `total_price`), ensuring non-breaking integration with `validate_invoice`, `lookup_db`, and `match_3_way`.
+4. **Cyclic HITL Correction Flow ([`05_Confidence_and_HITL.md`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/05_Confidence_and_HITL.md))**: Enables operators to submit `CORRECT_DATA` for low-confidence extractions, merging edits into state, emitting `HUMAN_CORRECTION_APPLIED` audit events, and cyclically re-entering `validate_invoice`.
+5. **Target LangGraph Pipeline Integration ([`06_AP_Integration.md`](file:///home/moeen/projects/apar_orchestrator/spec/Invoice_Intelligence/06_AP_Integration.md))**: Integrates `ingest_document`, `extract_invoice`, `evaluate_confidence`, cyclic `human_review`, and post-matching GRC authorization nodes.
+6. **Immutable Audit Trail Integration**: Emits standardized audit events (`DOCUMENT_RECEIVED`, `EXTRACTION_COMPLETED`, `LOW_CONFIDENCE_ROUTING`, `HUMAN_CORRECTION_APPLIED`, `REVALIDATION`).
+
 
 
 ---
@@ -549,6 +564,17 @@ apar-orchestrator/
 │   │   ├── 03_Compliance.md
 │   │   ├── 04_Audit_Trail.md
 │   │   └── 05_Implementation_Phases.md
+│   ├── Invoice_Intelligence/
+│   │   ├── 01_Architecture.md
+│   │   ├── 02_Document_Input.md
+│   │   ├── 03_OCR_Multilingual_Extraction.md
+│   │   ├── 04_Canonical_Invoice_Schema.md
+│   │   ├── 05_Confidence_and_HITL.md
+│   │   ├── 06_AP_Integration.md
+│   │   ├── 07_Error_Handling.md
+│   │   ├── 08_Security_Integration.md
+│   │   ├── 09_Testing.md
+│   │   └── 10_Implementation_Plan.md
 │   └── Phases/
 │       ├── 01_Foundation.md
 │       ├── 02_AP_MVP.md
@@ -557,6 +583,7 @@ apar-orchestrator/
 │       ├── 05_Communication.md
 │       ├── 06_Evaluation.md
 │       └── 07_Database_Integration.md
+
 │
 ├── src/
 │   └── apar_orchestrator/
