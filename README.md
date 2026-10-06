@@ -90,10 +90,10 @@ Repository classes (`ap_repository.py` and `ar_repository.py`) execute non-block
 ---
 
 ## 5. Testing & Validation
-The system maintains a comprehensive, green test suite of **81 automated tests** executing via `pytest` and `pytest-asyncio`. 
+The system maintains a comprehensive, green test suite of **84 automated tests** executing via `pytest` and `pytest-asyncio`. 
 Crucially, testing infrastructure has been isolated using `poolclass=NullPool` on the async DB engines, preventing `InterfaceError` connection pooling anomalies across async test loops.
 
-**Validated Scenarios (81 Passing Tests):**
+**Validated Scenarios (84 Passing Tests):**
 *   **AP Workflows & GRC (`test_ap_workflow.py`, `test_grc_workflow.py`):**
     *   **AP - Perfect Match:** Full 3-way match passes automatically, routing status to `COMPLETED`.
     *   **AP - Price Tolerance Exceeded:** Identifies variance, automatically triggers exception protocols, generates a discrepancy communication via LLM, and halts execution (`REQUIRES_APPROVAL`).
@@ -107,6 +107,7 @@ Crucially, testing infrastructure has been isolated using `poolclass=NullPool` o
     *   **AR - Overdue Payment Escalation:** Triggers overdue LLM correspondence drafting and halts for HITL review (`REQUIRES_APPROVAL`).
 *   **GRC - Governance & RBAC (`test_governance.py`):** Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles and validates Maker-Checker decision submission.
 *   **GRC - Risk & Security Management (`test_risk_management.py`):** Validates prompt injection sanitization, duplicate invoice detection, bank modification alerts, transaction anomaly scoring, LLM line item math checks, external risk API fallbacks, and node execution.
+*   **Audit Trail & Backcheck Integrity (`test_audit_trail.py`):** Validates SHA-256 cryptographic hash-chaining (`previous_hash` + canonical payload $\rightarrow$ `event_hash`), PII redaction, schema completeness, Maker-Checker actor verification (`actor_type`, `actor_id`, `actor_role`), risk level/score/flags persistence, and AP/AR backcheck queries.
 
 ---
 
@@ -120,6 +121,56 @@ The system incorporates a unified enterprise GRC layer applied symmetrically acr
 5. **External Risk Client ([`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py))**: External sanctions and compliance watchlist screening interface.
 6. **Shared Risk Assessment Node ([`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py))**: LangGraph node transparently evaluating AP vendor and AR customer identifiers to aggregate risk flags and assign severity levels (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
 7. **Compliance & Data Privacy Layer**: Ensures regulatory data minimization via dynamic PII redaction middleware ([`src/llm/middleware.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/middleware.py)), financial deterministic reconciliation ([`src/finance/reconciliation.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/reconciliation.py)), and automated TTL state cleanup jobs ([`src/database/retention_jobs.py`](file:///home/moeen/projects/apar_orchestrator/src/database/retention_jobs.py)). Mandates structured rationales for all decisions ([`src/domain/compliance_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/compliance_state.py)).
+8. **Hardened GRC Audit Trail Table (`audit_events`)**: PostgreSQL append-only audit trail enriched with explicit backcheck columns:
+   - `workflow_type`, `transaction_id`, `actor_type`, `actor_id`, `actor_role`
+   - `grc_domain`, `event_type`, `action`, `decision`, `reason`
+   - `risk_level`, `risk_score`, `risk_flags`, `approval_required`, `approval_status`
+   - `previous_hash`, `event_hash` (SHA-256 tamper-evident chain)
+
+---
+
+### Standard SQL Backcheck Queries for Financial Controllers & Auditors
+
+```sql
+-- 1. All audit events for a single transaction (e.g. INV-9903)
+SELECT *
+FROM audit_events
+WHERE transaction_id = 'INV-9903'
+ORDER BY timestamp;
+
+-- 2. Who approved a transaction and why
+SELECT
+    transaction_id,
+    actor_id,
+    actor_role,
+    action,
+    decision,
+    reason,
+    approval_required,
+    approval_status,
+    timestamp
+FROM audit_events
+WHERE transaction_id = 'INV-9903'
+  AND decision = 'APPROVED'
+ORDER BY timestamp;
+
+-- 3. All Checker / Financial Controller approvals
+SELECT
+    timestamp,
+    workflow_type,
+    transaction_id,
+    actor_id,
+    actor_role,
+    action,
+    decision,
+    risk_level,
+    risk_score,
+    reason
+FROM audit_events
+WHERE actor_role IN ('CHECKER', 'FINANCIAL_CONTROLLER')
+  AND decision = 'APPROVED'
+ORDER BY timestamp DESC;
+```
 
 ---
 

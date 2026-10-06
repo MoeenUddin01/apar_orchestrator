@@ -159,12 +159,19 @@ def risk_assessment_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AP" if "ap" in str(workflow_id).lower() else "AR")
+    transaction_id = invoice_number if invoice_number != "INV-UNKNOWN" else (vendor_id if vendor_id != "UNKNOWN_VENDOR" else None)
+    
     default_audit_callback.on_risk_assessment(
         workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
         risk_level=highest_severity.value,
         risk_flags=[f.code for f in all_flags],
         action=recommended_action,
-        metadata={"risk_score": round(final_score_value, 2)}
+        risk_score=round(final_score_value, 2),
+        recommended_action=recommended_action,
+        metadata={"risk_score": round(final_score_value, 2), "vendor_id": vendor_id, "amount": amount}
     )
 
     return updated_state

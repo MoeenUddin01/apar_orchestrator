@@ -16,6 +16,16 @@ class ActorType(str, Enum):
     AUDITOR = "AUDITOR"
 
 
+class GRCDomain(str, Enum):
+    WORKFLOW = "WORKFLOW"
+    SECURITY = "SECURITY"
+    PRIVACY = "PRIVACY"
+    RISK = "RISK"
+    COMPLIANCE = "COMPLIANCE"
+    GOVERNANCE = "GOVERNANCE"
+    MAKER_CHECKER = "MAKER_CHECKER"
+
+
 class EventType(str, Enum):
     # Workflow Events
     WORKFLOW_STARTED = "WORKFLOW_STARTED"
@@ -66,14 +76,33 @@ class AuditEvent(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     workflow_id: str
+    workflow_type: Optional[str] = None
+    transaction_id: Optional[str] = None
     correlation_id: Optional[str] = None
+    
     actor_type: ActorType = ActorType.SYSTEM
     actor_id: str = "orchestrator-system"
+    actor_role: Optional[str] = None
+    
     event_type: EventType
+    grc_domain: Optional[GRCDomain] = None
     node_name: Optional[str] = None
+    
+    action: Optional[str] = None
+    decision: Optional[str] = None
     status: str = "SUCCESS"
-    result: Optional[str] = None
+    
+    reason: Optional[str] = None
     summary: Optional[str] = None
+    result: Optional[str] = None
+    
+    # Backcheck & Risk / Governance Fields
+    risk_level: Optional[str] = None
+    risk_score: Optional[float] = None
+    risk_flags: List[str] = Field(default_factory=list)
+    approval_required: Optional[bool] = None
+    approval_status: Optional[str] = None
+
     evidence_refs: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     previous_hash: Optional[str] = None

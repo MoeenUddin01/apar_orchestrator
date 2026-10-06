@@ -218,10 +218,18 @@ def reconciliation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AP" if "ap" in str(workflow_id).lower() else "AR")
+    transaction_id = invoice_data.get("invoice_number") or invoice_data.get("po_number")
+    discrepancy_msg = "; ".join([d.description for d in result.discrepancies]) if result.discrepancies else None
+
     default_audit_callback.on_compliance_assessment(
         workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
         status="PASS" if result.is_balanced else "FAIL",
-        findings=[d.description for d in result.discrepancies]
+        findings=[d.description for d in result.discrepancies],
+        reconciliation_status=result.status.value if hasattr(result.status, "value") else str(result.status),
+        discrepancy_reason=discrepancy_msg
     )
 
     updates = {

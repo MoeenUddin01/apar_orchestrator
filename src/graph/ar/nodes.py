@@ -32,10 +32,11 @@ def extract_remittance_node(state: FinanceState) -> Dict[str, Any]:
 
     # 2. Audit Privacy Processing
     if redaction_res.pii_detected:
-        default_audit_callback.on_compliance_assessment(
+        default_audit_callback.on_privacy_redaction(
             workflow_id=workflow_id,
-            status="PASS",
-            findings=[f"Redacted {redaction_res.total_redactions} PII entities in AR remittance payload. Types: {list(redaction_res.entities_found.keys())}"]
+            workflow_type="AR",
+            redaction_count=redaction_res.total_redactions,
+            entities_found=redaction_res.entities_found,
         )
 
     # 3. External LLM / Extraction

@@ -28,16 +28,18 @@ def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
             "validation_errors": [f"Privacy Sanitization Failure: {e}"]
         }
         
-    # 2. Audit Privacy Processing
-    if redaction_res.pii_detected:
-        default_audit_callback.on_compliance_assessment(
-            workflow_id=workflow_id,
-            status="PASS",
-            findings=[f"Redacted {redaction_res.total_redactions} PII entities. Types: {list(redaction_res.entities_found.keys())}"]
-        )
-
     # 3. External LLM / Extraction
     extracted = extract_invoice_from_raw_document(clean_doc)
+
+    # 2. Audit Privacy Processing
+    if redaction_res.pii_detected:
+        default_audit_callback.on_privacy_redaction(
+            workflow_id=workflow_id,
+            workflow_type="AP",
+            transaction_id=extracted.invoice_number or extracted.po_number,
+            redaction_count=redaction_res.total_redactions,
+            entities_found=redaction_res.entities_found
+        )
     
     return {
         "status": "PROCESSING",

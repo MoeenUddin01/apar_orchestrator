@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from src.api.main import app
 from src.core.hashing import compute_event_hash, verify_chain, verify_event_hash
 from src.database.audit_repository import AuditRepository, default_audit_repository
-from src.domain.audit_schema import ActorType, AuditEvent, EventType
+from src.domain.audit_schema import ActorType, AuditEvent, EventType, GRCDomain
 from src.graph.shared.callbacks.audit_logger import AuditLoggerCallbackHandler
 
 client = TestClient(app)
@@ -198,3 +198,104 @@ def test_audit_api_endpoints():
     res_reports = client.get("/audit/reports?event_type=WORKFLOW_STARTED")
     assert res_reports.status_code == 200
     assert len(res_reports.json()) >= 1
+
+
+def test_backcheck_fields_schema_and_persistence():
+    event = AuditEvent(
+        workflow_id="WF-BACKCHECK-01",
+        workflow_type="AP",
+        transaction_id="INV-9903",
+        actor_type=ActorType.USER,
+        actor_id="usr_ctrl_99",
+        actor_role="FINANCIAL_CONTROLLER",
+        event_type=EventType.MAKER_APPROVED,
+        grc_domain=GRCDomain.MAKER_CHECKER,
+        node_name="MakerChecker_Approval",
+        action="APPROVE_HIGH_VALUE_PAYMENT",
+        decision="APPROVED",
+        reason="Matched PO-1088 and GR-7712.",
+        summary="Approved high value payment.",
+        risk_level="MEDIUM",
+        risk_score=0.45,
+        risk_flags=["HIGH_VALUE_THRESHOLD"],
+        approval_required=True,
+        approval_status="APPROVED",
+    )
+    assert event.risk_level == "MEDIUM"
+    assert event.risk_score == 0.45
+    assert event.risk_flags == ["HIGH_VALUE_THRESHOLD"]
+    assert event.approval_required is True
+    assert event.approval_status == "APPROVED"
+
+    saved_ev = default_audit_repository.log_event(event)
+    assert saved_ev.risk_level == "MEDIUM"
+    assert saved_ev.approval_status == "APPROVED"
+
+
+def test_maker_checker_actor_and_approval_verification():
+    cb = AuditLoggerCallbackHandler(repository=default_audit_repository)
+    wf_id = "WF-MC-CHECK-01"
+
+    # Maker-Checker Approval
+    evt_appr = cb.on_maker_checker_action(
+        workflow_id=wf_id,
+        workflow_type="AP",
+        transaction_id="INV-9903",
+        action="APPROVED",
+        checker_id="usr_ctrl_99",
+        role="FINANCIAL_CONTROLLER",
+        reason="Verified goods receipt and line items."
+    )
+    assert evt_appr.actor_type == ActorType.USER
+    assert evt_appr.actor_id == "usr_ctrl_99"
+    assert evt_appr.actor_role == "FINANCIAL_CONTROLLER"
+    assert evt_appr.decision == "APPROVED"
+    assert evt_appr.approval_required is True
+    assert evt_appr.approval_status == "APPROVED"
+
+    # Maker-Checker Rejection
+    evt_rej = cb.on_maker_checker_action(
+        workflow_id=wf_id,
+        workflow_type="AP",
+        transaction_id="INV-8812",
+        action="REJECTED",
+        checker_id="usr_audit_05",
+        role="CHECKER",
+        reason="Unmatched PO pricing."
+    )
+    assert evt_rej.actor_type == ActorType.USER
+    assert evt_rej.actor_id == "usr_audit_05"
+    assert evt_rej.actor_role == "CHECKER"
+    assert evt_rej.decision == "REJECTED"
+    assert evt_rej.approval_required is True
+    assert evt_rej.approval_status == "REJECTED"
+
+
+def test_ap_and_ar_audit_traceability():
+    cb = AuditLoggerCallbackHandler(repository=default_audit_repository)
+    
+    # AP Event
+    ev_ap = cb.on_risk_assessment(
+        workflow_id="wf-ap-trace-1",
+        workflow_type="AP",
+        transaction_id="INV-9903",
+        risk_level="MEDIUM",
+        risk_flags=["HIGH_VALUE"],
+        action="REVIEW",
+        risk_score=0.45
+    )
+    assert ev_ap.workflow_type == "AP"
+    assert ev_ap.transaction_id == "INV-9903"
+    assert ev_ap.risk_level == "MEDIUM"
+
+    # AR Event
+    ev_ar = cb.on_compliance_assessment(
+        workflow_id="wf-ar-trace-1",
+        workflow_type="AR",
+        transaction_id="REM-2015",
+        status="PASS",
+        findings=["Payment matched invoice CUST-218"]
+    )
+    assert ev_ar.workflow_type == "AR"
+    assert ev_ar.transaction_id == "REM-2015"
+
