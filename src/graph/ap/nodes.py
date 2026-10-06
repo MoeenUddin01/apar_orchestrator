@@ -69,13 +69,24 @@ def validate_invoice_node(state: FinanceState) -> Dict[str, Any]:
 
 
 async def lookup_db_node(state: FinanceState) -> Dict[str, Any]:
-    """Node 3: Retrieve PO and Goods Receipt from Postgres via AP repository."""
+    """Node 3: Retrieve PO, Goods Receipt, and historical invoices from Postgres via AP repository."""
     logger.info(f"AP Graph [lookup_db]: Querying database records.")
     data = state.get("extracted_data") or {}
     po_number = data.get("po_number", "")
+    vendor_id = data.get("vendor_id", "") or state.get("vendor_id", "")
 
     po = await ap_repository.get_purchase_order(po_number)
     goods_receipt = await ap_repository.get_goods_receipt(po_number)
+
+    historical_invoices = []
+    if vendor_id and vendor_id != "VEND-UNKNOWN":
+        historical_invoices = await ap_repository.get_historical_invoices_by_vendor(vendor_id)
+
+    historical_amounts = [
+        float(inv.get("amount") or inv.get("invoice_total") or 0.0)
+        for inv in historical_invoices
+        if (inv.get("amount") or inv.get("invoice_total")) is not None
+    ]
 
     facts = dict(state.get("financial_facts") or {})
     facts["po"] = po.model_dump() if po else None
@@ -83,6 +94,8 @@ async def lookup_db_node(state: FinanceState) -> Dict[str, Any]:
 
     return {
         "financial_facts": facts,
+        "historical_invoices": historical_invoices,
+        "historical_amounts": historical_amounts,
     }
 
 def match_3_way_node(state: FinanceState) -> Dict[str, Any]:
@@ -173,3 +186,29 @@ def generate_discrepancy_notice_node(state: FinanceState) -> Dict[str, Any]:
     return {
         "drafted_communications": drafts
     }
+
+async def persist_invoice_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 7: Persist successfully processed invoice into AP database upon approval."""
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    status = state.get("status")
+    routing_decision = state.get("routing_decision")
+    
+    if status == "COMPLETED" and routing_decision == "APPROVE":
+        extracted = state.get("extracted_data") or {}
+        invoice_number = extracted.get("invoice_number")
+        vendor_id = extracted.get("vendor_id")
+        invoice_total = float(extracted.get("invoice_total") or 0.0)
+        
+        if invoice_number and vendor_id and invoice_total > 0:
+            saved = await ap_repository.save_invoice({
+                "invoice_number": invoice_number,
+                "vendor_id": vendor_id,
+                "invoice_total": invoice_total,
+                "workflow_id": workflow_id,
+                "status": "COMPLETED",
+            })
+            if saved:
+                logger.info(f"AP Graph [persist_invoice]: Invoice {invoice_number} for vendor {vendor_id} persisted successfully.")
+    
+    return {}
+

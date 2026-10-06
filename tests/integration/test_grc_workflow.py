@@ -11,11 +11,11 @@ async def test_case_a_normal_invoice_no_checker_approval():
     """Case A: Amount below threshold -> No Checker approval -> Normal workflow continues"""
     raw_doc = json.dumps({
         "invoice_number": "INV-NORMAL",
-        "vendor_id": "VEND-001",
+        "vendor_id": "VEND-135",
         "po_number": "PO-1001",
-        "invoice_total": 1000.0,
+        "invoice_total": 1200.0,
         "line_items": [
-            {"item_id": "ITEM-A", "quantity": 10.0, "unit_price": 100.0, "total_price": 1000.0}
+            {"item_id": "ITEM-102", "quantity": 6.0, "unit_price": 200.0, "total_price": 1200.0}
         ]
     })
     initial_state = {

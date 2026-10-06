@@ -3,18 +3,28 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.main import app
+from src.database.repositories.ap_repository import ap_repository
 from src.graph.ap.graph import ap_graph
 
 
+@pytest.fixture(autouse=True)
+def clear_ap_repo():
+    """Clear in-memory AP repository between tests for isolation."""
+    ap_repository.clear()
+    yield
+    ap_repository.clear()
+
+
 @pytest.mark.asyncio
+
 async def test_ap_graph_execution_perfect_match():
     raw_doc = json.dumps({
         "invoice_number": "INV-1001",
-        "vendor_id": "VEND-001",
+        "vendor_id": "VEND-135",
         "po_number": "PO-1001",
-        "invoice_total": 1000.0,
+        "invoice_total": 1200.0,
         "line_items": [
-            {"item_id": "ITEM-A", "quantity": 10.0, "unit_price": 100.0, "total_price": 1000.0}
+            {"item_id": "ITEM-102", "quantity": 6.0, "unit_price": 200.0, "total_price": 1200.0}
         ]
     })
 
@@ -66,9 +76,9 @@ async def test_ap_process_invoice_api_endpoint():
         payload = {
             "raw_document": json.dumps({
                 "invoice_number": "INV-1001",
-                "vendor_id": "VEND-001",
+                "vendor_id": "VEND-135",
                 "po_number": "PO-1001",
-                "invoice_total": 1000.0,
+                "invoice_total": 1200.0,
             })
         }
         response = await client.post("/ap/process-invoice", json=payload)

@@ -15,15 +15,15 @@ def load_json_fixture(filename: str) -> dict:
 # AP: Perfect match
 PERFECT_INVOICE_JSON = {
     "invoice_number": "INV-PERFECT",
-    "vendor_id": "VEND-001",
+    "vendor_id": "VEND-135",
     "po_number": "PO-1001",
-    "invoice_total": 1000.0,
+    "invoice_total": 1200.0,
     "line_items": [
         {
-            "item_id": "ITEM-A",
-            "quantity": 10.0,
-            "unit_price": 100.0,
-            "total_price": 1000.0
+            "item_id": "ITEM-102",
+            "quantity": 6.0,
+            "unit_price": 200.0,
+            "total_price": 1200.0
         }
     ]
 }
@@ -31,15 +31,15 @@ PERFECT_INVOICE_JSON = {
 # AP: Tolerance Exceeded
 TOLERANCE_EXCEEDED_INVOICE_JSON = {
     "invoice_number": "INV-TOL",
-    "vendor_id": "VEND-001",
+    "vendor_id": "VEND-135",
     "po_number": "PO-1001",
-    "invoice_total": 1200.0,  # Expected 1000.0
+    "invoice_total": 1500.0,  # Expected 1200.0
     "line_items": [
         {
-            "item_id": "ITEM-A",
-            "quantity": 10.0,
-            "unit_price": 120.0,
-            "total_price": 1200.0
+            "item_id": "ITEM-102",
+            "quantity": 6.0,
+            "unit_price": 250.0,
+            "total_price": 1500.0
         }
     ]
 }
@@ -47,14 +47,14 @@ TOLERANCE_EXCEEDED_INVOICE_JSON = {
 # AP: High Value
 HIGH_VALUE_INVOICE_JSON = {
     "invoice_number": "INV-HIGH",
-    "vendor_id": "VEND-001",
-    "po_number": "PO-1001",
+    "vendor_id": "VEND-134",
+    "po_number": "PO-1012",
     "invoice_total": 50000.0,
     "line_items": [
         {
-            "item_id": "ITEM-A",
-            "quantity": 10.0,
-            "unit_price": 5000.0,
+            "item_id": "ITEM-110",
+            "quantity": 100.0,
+            "unit_price": 500.0,
             "total_price": 50000.0
         }
     ]
