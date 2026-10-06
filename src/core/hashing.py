@@ -19,6 +19,7 @@ def _canonicalize_dict(data: Dict[str, Any]) -> str:
 def compute_event_hash(
     event: Union[Dict[str, Any], AuditEvent],
     previous_hash: Optional[str] = None,
+    legacy_fallback: bool = False,
 ) -> str:
     """Computes SHA-256 event hash by chaining previous_hash + canonical event payload."""
     if isinstance(event, AuditEvent):
@@ -31,6 +32,19 @@ def compute_event_hash(
     prev_hash_str = previous_hash if previous_hash is not None else (event_dict.get("previous_hash") or "")
     event_dict["previous_hash"] = prev_hash_str
 
+    if legacy_fallback:
+        new_fields = [
+            "workflow_type", "transaction_id", "actor_role", "grc_domain", 
+            "action", "decision", "reason", "risk_level", "risk_score", 
+            "approval_required", "approval_status"
+        ]
+        for f in new_fields:
+            if event_dict.get(f) is None:
+                event_dict.pop(f, None)
+                
+        if event_dict.get("risk_flags") == []:
+            event_dict.pop("risk_flags", None)
+
     canonical_data = _canonicalize_dict(event_dict)
     combined = f"{prev_hash_str}:{canonical_data}"
 
@@ -42,7 +56,11 @@ def verify_event_hash(event: AuditEvent) -> bool:
     if not event.event_hash:
         return False
     expected_hash = compute_event_hash(event, previous_hash=event.previous_hash)
-    return event.event_hash == expected_hash
+    if event.event_hash == expected_hash:
+        return True
+        
+    legacy_hash = compute_event_hash(event, previous_hash=event.previous_hash, legacy_fallback=True)
+    return event.event_hash == legacy_hash
 
 
 def verify_chain(events: List[AuditEvent]) -> Tuple[bool, Optional[str]]:
@@ -61,14 +79,22 @@ def verify_chain(events: List[AuditEvent]) -> Tuple[bool, Optional[str]]:
                 f"Tampering detected: Event '{event.event_id}' (index {i}) hash mismatch.",
             )
 
-        # 2. Verify hash chain connection with previous event
-        if i > 0:
+        # 2. Verify strict sequential hash chain connection with previous event
+        if i == 0:
+            if event.previous_hash != "":
+                return (
+                    False,
+                    f"Chain broken at index 0: First event '{event.event_id}' previous_hash "
+                    f"must be empty, got '{event.previous_hash}'.",
+                )
+        else:
             prev_event = events[i - 1]
             if event.previous_hash != prev_event.event_hash:
                 return (
                     False,
                     f"Chain broken at index {i}: Event '{event.event_id}' previous_hash "
-                    f"'{event.previous_hash}' does not match previous event_hash '{prev_event.event_hash}'.",
+                    f"'{event.previous_hash}' does not match previous event hash '{prev_event.event_hash}'.",
                 )
 
     return True, None
+

@@ -25,7 +25,7 @@ def reconcile_invoice_totals(
     for idx, item in enumerate(line_items or []):
         qty = float(item.get("quantity") or 0.0)
         unit_price = float(item.get("unit_price") or item.get("rate") or 0.0)
-        item_declared_total = float(item.get("total") or item.get("amount") or 0.0)
+        item_declared_total = float(item.get("total_price") or item.get("total") or item.get("amount") or 0.0)
         expected_item_total = round(qty * unit_price, 2) if (qty > 0 and unit_price > 0) else item_declared_total
 
         diff = round(abs(expected_item_total - item_declared_total), 2)
@@ -46,7 +46,12 @@ def reconcile_invoice_totals(
             )
 
     line_items_sum = round(line_items_sum, 2)
-    subtotal_check = declared_subtotal if declared_subtotal > 0 else line_items_sum
+    subtotal_check = (
+        declared_subtotal
+        if declared_subtotal > 0
+        else (line_items_sum if (line_items and line_items_sum > 0) else round(declared_total - declared_tax, 2))
+    )
+
 
     # 2. Verify subtotal vs line items sum
     if line_items and abs(line_items_sum - subtotal_check) > tolerance:
@@ -182,25 +187,67 @@ def reconcile_payment_request(
     )
 
 
+from src.graph.shared.callbacks.audit_logger import default_audit_callback
+
 def reconciliation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     LangGraph node enforcing deterministic reconciliation on graph state.
     """
-    invoice_data = state.get("extracted_invoice") or state.get("invoice") or state
+    invoice_data = state.get("extracted_data") or state.get("extracted_invoice") or state.get("invoice") or {}
+    
+    # Handle both object and dict forms (extracted_data might contain dicts or objects depending on state serialization)
     line_items = invoice_data.get("line_items", [])
+    
+    # Ensure line_items is a list of dicts for reconcile_invoice_totals
+    processed_line_items = []
+    for item in line_items:
+        if hasattr(item, "model_dump"):
+            processed_line_items.append(item.model_dump())
+        elif isinstance(item, dict):
+            processed_line_items.append(item)
+            
     declared_subtotal = float(invoice_data.get("subtotal") or 0.0)
     declared_tax = float(invoice_data.get("tax_amount") or invoice_data.get("tax") or 0.0)
     declared_total = float(invoice_data.get("invoice_total") or invoice_data.get("total_amount") or invoice_data.get("amount") or 0.0)
 
     result = reconcile_invoice_totals(
-        line_items=line_items,
+        line_items=processed_line_items,
         declared_subtotal=declared_subtotal,
         declared_tax=declared_tax,
         declared_total=declared_total,
     )
 
-    return {
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AP" if "ap" in str(workflow_id).lower() else "AR")
+    transaction_id = invoice_data.get("invoice_number") or invoice_data.get("po_number")
+    discrepancy_msg = "; ".join([d.description for d in result.discrepancies]) if result.discrepancies else None
+
+    default_audit_callback.on_compliance_assessment(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
+        status="PASS" if result.is_balanced else "FAIL",
+        findings=[d.description for d in result.discrepancies],
+        reconciliation_status=result.status.value if hasattr(result.status, "value") else str(result.status),
+        discrepancy_reason=discrepancy_msg
+    )
+
+    updates = {
         "reconciliation_result": result.model_dump(),
         "is_reconciled": result.is_balanced,
         "compliance_rationale": result.rationale.model_dump() if result.rationale else None,
     }
+
+    if not result.is_balanced:
+        # Route to HITL/Exception flow according to existing project conventions
+        updates["routing_decision"] = "HITL"
+        updates["status"] = "REQUIRES_APPROVAL"
+        
+        hitl = state.get("hitl_decision") or {}
+        hitl["requires_hitl"] = True
+        hitl["hitl_reason"] = "Financial Compliance Discrepancy"
+        existing_reasons = hitl.get("hitl_reasons", [])
+        hitl["hitl_reasons"] = existing_reasons + [d.description for d in result.discrepancies]
+        updates["hitl_decision"] = hitl
+
+    return updates

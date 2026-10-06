@@ -48,9 +48,9 @@ def extract_invoice_from_raw_document(raw_document: str) -> ExtractedInvoice:
 
     # Regex heuristic fallback for text documents when LLM provider is offline
     invoice_num = re.search(r"Invoice\s*(?:Number|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
-    po_num = re.search(r"(?:PO|Purchase\s*Order|Reference\s*PO)\s*(?:Number|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
+    po_num = re.search(r"(?:PO(?:\s*Reference)?|Purchase\s*Order|Reference\s*PO)\s*(?:Number|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
     vendor = re.search(r"Vendor\s*(?:ID|#)?\s*:?\s*([A-Z0-9-]+)", raw_document, re.IGNORECASE)
-    total = re.search(r"Total\s*:?\s*\$?([0-9,]+\.?[0-9]*)", raw_document, re.IGNORECASE)
+    total = re.search(r"Total(?:\s*Billed)?\s*:?\s*\$?([0-9,]+\.?[0-9]*)", raw_document, re.IGNORECASE)
 
     extracted_total = float(total.group(1).replace(",", "")) if total else 0.0
 

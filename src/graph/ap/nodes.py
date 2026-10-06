@@ -9,15 +9,43 @@ from src.finance.routing import evaluate_hitl_rules
 from src.llm.generators.communications import generate_discrepancy_notice_llm
 
 
+from src.llm.middleware import privacy_middleware
+from src.graph.shared.callbacks.audit_logger import default_audit_callback
+
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
     """Node 1: Extract structured invoice data from raw document using LLM boundary."""
-    logger.info(f"AP Graph [extract_invoice]: Processing workflow {state.get('workflow_id')}")
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    logger.info(f"AP Graph [extract_invoice]: Processing workflow {workflow_id}")
     raw_doc = state.get("raw_document") or ""
-    extracted = extract_invoice_from_raw_document(raw_doc)
+    
+    # 1. PII Sanitization
+    try:
+        clean_doc, redaction_res = privacy_middleware.process_prompt(raw_doc)
+    except Exception as e:
+        logger.error(f"Privacy middleware failed: {e}")
+        return {
+            "status": "ERROR",
+            "validation_errors": [f"Privacy Sanitization Failure: {e}"]
+        }
+        
+    # 3. External LLM / Extraction
+    extracted = extract_invoice_from_raw_document(clean_doc)
+
+    # 2. Audit Privacy Processing
+    if redaction_res.pii_detected:
+        default_audit_callback.on_privacy_redaction(
+            workflow_id=workflow_id,
+            workflow_type="AP",
+            transaction_id=extracted.invoice_number or extracted.po_number,
+            redaction_count=redaction_res.total_redactions,
+            entities_found=redaction_res.entities_found
+        )
     
     return {
         "status": "PROCESSING",
         "extracted_data": extracted.model_dump(),
+        "sanitized_input": clean_doc if redaction_res.pii_detected else None,
+        "redaction_result": redaction_res.model_dump()
     }
 
 

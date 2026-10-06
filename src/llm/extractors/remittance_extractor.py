@@ -3,8 +3,15 @@ import re
 from src.core.logging import logger
 from src.domain.ar.models import ExtractedRemittance
 from src.core.config import settings
+from src.llm.middleware import privacy_interceptor
 
+
+
+
+
+@privacy_interceptor
 def extract_remittance_from_raw_document(raw_document: str) -> ExtractedRemittance:
+
     """
     LLM extraction boundary for converting unstructured remittance text into structured ExtractedRemittance.
     Extracts customer_identifier, referenced_invoices, and total_payment.

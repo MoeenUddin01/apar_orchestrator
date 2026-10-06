@@ -41,13 +41,19 @@ A single `TypedDict` holds the shared workflow state:
 *   `drafted_communications` (LLM-drafted emails)
 
 **Graph Execution Flow:**
-*   **AP Workflow**: `extract_invoice` → `validate_invoice` → `lookup_db` (Purchase Orders & Goods Receipts) → `match_3_way` (Math) → **Decision Router** (Approve / Exception / HITL).
-    *   *If Exception/HITL:* Routes to `generate_discrepancy` → pauses at `human_review`.
-*   **AR Workflow**: `extract_remittance` → `lookup_invoices` (DB lookup) → `reconcile_payment` → `calculate_aging` → **Decision Router** (Closed / Partial / Overdue).
-    *   *If Overdue:* Routes to `generate_overdue` → pauses at `human_review`.
+*   **AP Workflow**: `LLMPrivacyMiddleware` (PII Redaction) → `extract_invoice` → `validate_invoice` → `lookup_db` (Purchase Orders & Goods Receipts) → `match_3_way` (Math) → `reconciliation_node` → `risk_assessment_node` → `governance_policy_node` → **Decision Router**.
+    *   *If Maker-Checker Required (High-Value >$10k or High/Critical Risk):* Routes to `maker_checker_node` → pauses at `human_review` for dual authorization.
+    *   *If 3-Way Variance Mismatch / Missing PO / Missing GR:* Routes to `generate_discrepancy` → pauses at `human_review`.
+    *   *If Low Risk & Matched:* `COMPLETED`.
+*   **AR Workflow**: `LLMPrivacyMiddleware` (PII Redaction) → `extract_remittance` → `lookup_invoices` (DB lookup) → `reconcile_payment` → `calculate_aging` → `risk_assessment_node` → `governance_policy_node` → **Decision Router**.
+    *   *If Maker-Checker Required (High-Value Remittance >$10k or High/Critical Risk):* Routes to `maker_checker_node` → pauses at `human_review` for dual authorization.
+    *   *If Overdue Payment Exception:* Routes to `generate_overdue` → pauses at `human_review`.
+    *   *If Low Risk & Settle/Partial Match:* `COMPLETED`.
 
-**HITL Implementation Strategy:**
-The workflows utilize LangGraph's `MemorySaver()` checkpointer. During graph compilation, `interrupt_before=["human_review"]` is defined. When the graph reaches the `human_review` node, execution halts, persisting the state using the provided `thread_id` (mapped to `workflow_id`). The API layer exposes a `/resume` endpoint which injects `hitl_input` into the state and calls `ainvoke` with the same `thread_id` to complete the graph.
+**HITL & Governance Resumption Strategy:**
+The workflows utilize LangGraph's `MemorySaver()` checkpointer. During graph compilation, `interrupt_before=["human_review"]` is defined for nodes requiring manual review or Maker-Checker authorization. When reaching an interrupt point, execution halts, persisting state using `thread_id` (mapped to `workflow_id`). 
+* For **HITL Exception Reviews**: The API layer exposes `/ap/{id}/resume` and `/ar/{id}/resume` to inject decision inputs.
+* For **Maker-Checker Governance Approvals**: The API exposes `POST /governance/decide` to validate RBAC roles (`MAKER` vs `CHECKER`), record audit entries, update state via `aupdate_state()`, and trigger `ainvoke(None, config=config)` to resume state safely without re-running earlier nodes.
 
 ---
 
@@ -84,31 +90,87 @@ Repository classes (`ap_repository.py` and `ar_repository.py`) execute non-block
 ---
 
 ## 5. Testing & Validation
-The system currently maintains robust unit and integration tests executing via `pytest` and `pytest-asyncio`. 
+The system maintains a comprehensive, green test suite of **84 automated tests** executing via `pytest` and `pytest-asyncio`. 
 Crucially, testing infrastructure has been isolated using `poolclass=NullPool` on the async DB engines, preventing `InterfaceError` connection pooling anomalies across async test loops.
 
-**Validated Scenarios (Green Test Suite):**
-*   **AP - Perfect Match:** `test_ap_workflow_perfect_match`. Full 3-way match passes automatically, routing status to `COMPLETED`.
-*   **AP - Tolerance Exceeded:** `test_ap_workflow_tolerance_exceeded`. Identifies variance, automatically triggers exception protocols, generates a discrepancy communication via LLM, and halts execution (`REQUIRES_APPROVAL`).
-*   **AP - Exception Routing:** Mismatches correctly bypass approval.
-*   **AR - Full Payment:** Validates exact payment application against outstanding DB invoices.
-*   **AR - Partial Payment:** Confirms partial balance retention routes strictly to `COMPLETED` without marking the underlying invoice fully paid.
-*   **AR - Overdue:** Triggers overdue LLM correspondence and halts for HITL review.
-*   **GRC - Governance & RBAC:** `test_governance.py`. Enforces role permissions (Maker, Checker, Admin, Auditor) and Maker-Checker decision submitting.
-*   **GRC - Risk & Security Management:** `test_risk_management.py` (16 unit tests). Validates prompt injection sanitization, duplicate invoice detection, bank modification alerts, transaction anomaly scoring, LLM line item math checks, external risk API fallbacks, and node execution.
+**Validated Scenarios (84 Passing Tests):**
+*   **AP Workflows & GRC (`test_ap_workflow.py`, `test_grc_workflow.py`):**
+    *   **AP - Perfect Match:** Full 3-way match passes automatically, routing status to `COMPLETED`.
+    *   **AP - Price Tolerance Exceeded:** Identifies variance, automatically triggers exception protocols, generates a discrepancy communication via LLM, and halts execution (`REQUIRES_APPROVAL`).
+    *   **AP - High-Value Invoice Maker-Checker Approval:** High-value invoices (>$10,000) pause at `maker_checker_node` requiring dual authorization. Responding via `/governance/decide` with `CHECKER` role successfully updates state to `COMPLETED`.
+    *   **AP - Audit Trail Logging:** Verifies immutable log entries for all node executions and Maker-Checker actions.
+*   **AR Workflows & GRC (`test_ar_workflow.py`):**
+    *   **AR - Full Payment:** Validates exact payment application against outstanding DB invoices, updating balance to zero (`COMPLETED`).
+    *   **AR - Partial Payment:** Confirms partial balance retention routes strictly to `COMPLETED` without marking the underlying invoice fully paid.
+    *   **AR - High-Value Remittance Maker-Checker Approval:** High-value remittances (>$10,000) trigger `rule_high_value_remittance` governance policy and halt for `MAKER_CHECKER_REQUIRED`. Submitting a `CHECKER` approval resumes the graph to `COMPLETED`.
+    *   **AR - High-Risk Remittance Routing:** Remittances triggering high/critical risk flags (e.g. customer anomaly or prompt injection) pause for Maker-Checker approval or human review.
+    *   **AR - Overdue Payment Escalation:** Triggers overdue LLM correspondence drafting and halts for HITL review (`REQUIRES_APPROVAL`).
+*   **GRC - Governance & RBAC (`test_governance.py`):** Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles and validates Maker-Checker decision submission.
+*   **GRC - Risk & Security Management (`test_risk_management.py`):** Validates prompt injection sanitization, duplicate invoice detection, bank modification alerts, transaction anomaly scoring, LLM line item math checks, external risk API fallbacks, and node execution.
+*   **Audit Trail & Backcheck Integrity (`test_audit_trail.py`):** Validates SHA-256 cryptographic hash-chaining (`previous_hash` + canonical payload $\rightarrow$ `event_hash`), PII redaction, schema completeness, Maker-Checker actor verification (`actor_type`, `actor_id`, `actor_role`), risk level/score/flags persistence, and AP/AR backcheck queries.
 
 ---
 
 ## 5. Governance, Risk & Compliance (GRC) Architecture
-The system incorporates an enterprise GRC layer structured into modular security, operational, and governance boundaries:
+The system incorporates a unified enterprise GRC layer applied symmetrically across **both Accounts Payable (AP) and Accounts Receivable (AR)** workflows:
 
-1. **Governance & RBAC ([`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/))**: Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles. Manages Maker-Checker approval nodes and REST decision endpoints.
+1. **Governance & RBAC ([`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/))**: Enforces segregation of duties across `ADMIN`, `MAKER`, `CHECKER`, and `AUDITOR` roles. Manages `maker_checker_node` approval nodes and REST decision endpoints (`POST /governance/decide`).
 2. **Security & Input Sanitization ([`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py))**: Strips control characters, script/style tags, and null bytes. Detects prompt injection signatures.
-3. **Operational Risk Engine ([`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py))**: Rule-based detection for duplicate invoices, anomalous transactions, and bank account modifications.
+3. **Operational Risk Engine ([`src/finance/risk_scoring.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/risk_scoring.py))**: Rule-based risk detection for duplicate invoices, customer/vendor transaction anomalies, and bank account modifications.
 4. **AI Extraction Validation ([`src/llm/validation.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/validation.py))**: Deterministically cross-checks line item calculations and currency consistency. Prevents LLM outputs from overriding deterministic math.
-5. **External Vendor Risk Client ([`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py))**: External sanctions and compliance watchlist screening interface.
-6. **Shared Risk Assessment Node ([`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py))**: LangGraph node aggregating risk flags and determining workflow recommendations (`CONTINUE`, `MONITOR`, `HUMAN_REVIEW_RECOMMENDED`, `BLOCK_UNTIL_AUTHORIZED`).
-7. **Compliance & Data Privacy Layer**: Ensures regulatory data minimization and explainability via regex-based PII redaction middleware (`src/llm/middleware.py`), financial deterministic reconciliation (`src/finance/reconciliation.py`), and automated TTL state cleanup jobs (`src/database/retention_jobs.py`). Mandates structured rationales for all decisions (`src/domain/compliance_state.py`).
+5. **External Risk Client ([`src/api/integrations/risk_apis.py`](file:///home/moeen/projects/apar_orchestrator/src/api/integrations/risk_apis.py))**: External sanctions and compliance watchlist screening interface.
+6. **Shared Risk Assessment Node ([`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py))**: LangGraph node transparently evaluating AP vendor and AR customer identifiers to aggregate risk flags and assign severity levels (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+7. **Compliance & Data Privacy Layer**: Ensures regulatory data minimization via dynamic PII redaction middleware ([`src/llm/middleware.py`](file:///home/moeen/projects/apar_orchestrator/src/llm/middleware.py)), financial deterministic reconciliation ([`src/finance/reconciliation.py`](file:///home/moeen/projects/apar_orchestrator/src/finance/reconciliation.py)), and automated TTL state cleanup jobs ([`src/database/retention_jobs.py`](file:///home/moeen/projects/apar_orchestrator/src/database/retention_jobs.py)). Mandates structured rationales for all decisions ([`src/domain/compliance_state.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/compliance_state.py)).
+8. **Hardened GRC Audit Trail Table (`audit_events`)**: PostgreSQL append-only audit trail enriched with explicit backcheck columns:
+   - `workflow_type`, `transaction_id`, `actor_type`, `actor_id`, `actor_role`
+   - `grc_domain`, `event_type`, `action`, `decision`, `reason`
+   - `risk_level`, `risk_score`, `risk_flags`, `approval_required`, `approval_status`
+   - `previous_hash`, `event_hash` (SHA-256 tamper-evident chain)
+
+---
+
+### Standard SQL Backcheck Queries for Financial Controllers & Auditors
+
+```sql
+-- 1. All audit events for a single transaction (e.g. INV-9903)
+SELECT *
+FROM audit_events
+WHERE transaction_id = 'INV-9903'
+ORDER BY timestamp;
+
+-- 2. Who approved a transaction and why
+SELECT
+    transaction_id,
+    actor_id,
+    actor_role,
+    action,
+    decision,
+    reason,
+    approval_required,
+    approval_status,
+    timestamp
+FROM audit_events
+WHERE transaction_id = 'INV-9903'
+  AND decision = 'APPROVED'
+ORDER BY timestamp;
+
+-- 3. All Checker / Financial Controller approvals
+SELECT
+    timestamp,
+    workflow_type,
+    transaction_id,
+    actor_id,
+    actor_role,
+    action,
+    decision,
+    risk_level,
+    risk_score,
+    reason
+FROM audit_events
+WHERE actor_role IN ('CHECKER', 'FINANCIAL_CONTROLLER')
+  AND decision = 'APPROVED'
+ORDER BY timestamp DESC;
+```
 
 ---
 
@@ -264,6 +326,19 @@ Amount Paid: $1,000.00
 
 Payment applied to the following reference invoices:
 INV-2070
+```
+
+**10. High-Value Remittance Executive Approval (AR GRC)**
+Remittance payment ($15,000.00) exceeds the governance policy threshold (>$10,000). The AR GRC engine evaluates `rule_high_value_remittance`, triggering `MAKER_CHECKER_REQUIRED` and pausing execution for `CHECKER` dual authorization.
+```text
+REMITTANCE ADVICE
+-----------------
+Customer ID: CUST-218
+Date: 2026-09-30
+Amount Paid: $15,000.00
+
+Payment applied to the following reference invoices:
+INV-2015
 ```
 
 ---
@@ -1106,7 +1181,7 @@ Implement one specification phase at a time instead of building the entire syste
 
 # 24. Current Project Status
 
-The project is currently **fully implemented** up to Phase 6 (Evaluation & Hardening).
+The project is currently **fully implemented** up to Phase 6 (Evaluation & Hardening) and has successfully integrated the **Enterprise GRC Layer**.
 
 Planned implementation order:
 
@@ -1124,6 +1199,12 @@ Planned implementation order:
 [x] Implement HITL
 [x] Implement AI communication
 [x] Implement evaluation framework
+[x] Implement Governance & RBAC (Maker-Checker)
+[x] Implement Financial Compliance & Risk Engines
+[x] Implement GDPR/CCPA PII Privacy Middleware
+[x] Implement Immutable Audit Trails
+[x] Hardened AP GRC Workflow & Checkpoint Resume
+[x] Wire GRC Architecture into Accounts Receivable (AR) Workflow
 ```
 
 The project should not be considered production-ready until security, reliability, observability, database migration strategy, testing, and deployment requirements have been properly addressed.
@@ -1136,16 +1217,15 @@ Possible future extensions include:
 
 - Additional finance workflows
 - More document formats
-- OCR integration
+- OCR integration (Azure Document Intelligence)
 - ERP integrations
 - Accounting-system integrations
 - Advanced reconciliation
-- Audit trails
-- Role-based access control
 - Workflow dashboards
 - Approval dashboards
 - Monitoring and observability
 - Production deployment
+- Executing final Financial Action (Payments)
 
 These are intentionally outside the initial MVP scope unless added to a future specification.
 

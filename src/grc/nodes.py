@@ -6,6 +6,7 @@ from src.grc.policy_rules import (
     validate_post_execution_policy,
     validate_pre_execution_policy,
 )
+from src.graph.shared.callbacks.audit_logger import default_audit_callback
 
 
 def governance_policy_check_node(state: FinanceState) -> Dict[str, Any]:
@@ -26,8 +27,35 @@ def governance_policy_check_node(state: FinanceState) -> Dict[str, Any]:
         approval_status=ApprovalStatus.PENDING if requires_approval else ApprovalStatus.BYPASSED,
     )
     
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AP")
+    extracted_data = state.get("extracted_data") or {}
+    transaction_id = extracted_data.get("invoice_number") or extracted_data.get("po_number")
+    reason_text = "; ".join(all_violations) if all_violations else "Policy rules evaluated: PASSED."
+    
+    default_audit_callback.on_governance_decision(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
+        decision="APPROVAL_REQUIRED" if requires_approval else "PASSED",
+        policy_code="AP_GOVERNANCE_POLICY",
+        reason=reason_text
+    )
+    
+    if requires_approval:
+        default_audit_callback.on_maker_checker_action(
+            workflow_id=workflow_id,
+            workflow_type=workflow_type,
+            transaction_id=transaction_id,
+            action="REQUESTED",
+            checker_id="Financial Controller",
+            role="FINANCIAL_CONTROLLER",
+            reason=reason_text
+        )
+    
     return {
         "governance_status": gov_status.model_dump(),
+        "status": "REQUIRES_APPROVAL" if requires_approval else state.get("status", "PROCESSING"),
     }
 
 
@@ -37,25 +65,45 @@ def maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
     checker_id = hitl_input.get("checker_id", "UNKNOWN_CHECKER")
+    user_role = hitl_input.get("user_role", "CHECKER")
     comments = hitl_input.get("comments", "")
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AP")
+    extracted_data = state.get("extracted_data") or {}
+    transaction_id = extracted_data.get("invoice_number") or extracted_data.get("po_number")
 
     existing_gov = state.get("governance_status") or {}
     updated_gov = dict(existing_gov)
+    updated_gov["approved_by_role"] = user_role
     
-    if action == "APPROVE":
+    if action in ["APPROVE", "APPROVED"]:
         updated_gov["approval_status"] = ApprovalStatus.APPROVED.value
         updated_gov["approved_by"] = checker_id
         updated_gov["approval_comments"] = comments
         status = "COMPLETED"
+        routing_decision = "APPROVE"
     else:
         updated_gov["approval_status"] = ApprovalStatus.REJECTED.value
         updated_gov["approval_comments"] = comments
         status = "ERROR"
+        routing_decision = "EXCEPTION"
+
+    default_audit_callback.on_maker_checker_action(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
+        action=action if action in ["APPROVED", "REJECTED"] else ("APPROVED" if action == "APPROVE" else "REJECTED"),
+        checker_id=checker_id,
+        reason=comments,
+        role=user_role
+    )
 
     return {
         "governance_status": updated_gov,
         "status": status,
+        "routing_decision": routing_decision,
     }
+
 
 
 def ar_governance_policy_check_node(state: FinanceState) -> Dict[str, Any]:
@@ -76,8 +124,36 @@ def ar_governance_policy_check_node(state: FinanceState) -> Dict[str, Any]:
         approval_status=ApprovalStatus.PENDING if requires_approval else ApprovalStatus.BYPASSED,
     )
     
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AR")
+    extracted_data = state.get("extracted_data") or {}
+    ref_invs = extracted_data.get("referenced_invoices")
+    transaction_id = (ref_invs[0] if (ref_invs and isinstance(ref_invs, list)) else None) or extracted_data.get("customer_id")
+    reason_text = "; ".join(all_violations) if all_violations else "Policy rules evaluated: PASSED."
+    
+    default_audit_callback.on_governance_decision(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
+        decision="APPROVAL_REQUIRED" if requires_approval else "PASSED",
+        policy_code="AR_GOVERNANCE_POLICY",
+        reason=reason_text
+    )
+    
+    if requires_approval:
+        default_audit_callback.on_maker_checker_action(
+            workflow_id=workflow_id,
+            workflow_type=workflow_type,
+            transaction_id=transaction_id,
+            action="REQUESTED",
+            checker_id="Financial Controller",
+            role="FINANCIAL_CONTROLLER",
+            reason=reason_text
+        )
+    
     return {
         "governance_status": gov_status.model_dump(),
+        "status": "REQUIRES_APPROVAL" if requires_approval else state.get("status", "PROCESSING"),
     }
 
 
@@ -87,22 +163,43 @@ def ar_maker_checker_review_node(state: FinanceState) -> Dict[str, Any]:
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
     checker_id = hitl_input.get("checker_id", "UNKNOWN_CHECKER")
+    user_role = hitl_input.get("user_role", "CHECKER")
     comments = hitl_input.get("comments", "")
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    workflow_type = state.get("workflow_type", "AR")
+    extracted_data = state.get("extracted_data") or {}
+    ref_invs = extracted_data.get("referenced_invoices")
+    transaction_id = (ref_invs[0] if (ref_invs and isinstance(ref_invs, list)) else None) or extracted_data.get("customer_id")
 
     existing_gov = state.get("governance_status") or {}
     updated_gov = dict(existing_gov)
+    updated_gov["approved_by_role"] = user_role
     
-    if action == "APPROVE":
+    if action in ["APPROVE", "APPROVED"]:
         updated_gov["approval_status"] = ApprovalStatus.APPROVED.value
         updated_gov["approved_by"] = checker_id
         updated_gov["approval_comments"] = comments
         status = "COMPLETED"
+        routing_decision = "APPROVED"
     else:
         updated_gov["approval_status"] = ApprovalStatus.REJECTED.value
         updated_gov["approval_comments"] = comments
         status = "ERROR"
+        routing_decision = "CANCELLED"
+
+    default_audit_callback.on_maker_checker_action(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        transaction_id=transaction_id,
+        action="APPROVED" if action in ["APPROVE", "APPROVED"] else "REJECTED",
+        checker_id=checker_id,
+        reason=comments,
+        role=user_role
+    )
 
     return {
         "governance_status": updated_gov,
         "status": status,
+        "routing_decision": routing_decision,
     }
+

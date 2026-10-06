@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -18,9 +19,70 @@ class AuditRepository:
 
     def __init__(self, session: Optional[Session] = None):
         self.session = session
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         # In-memory store for fast access and fallback testing
         self._in_memory_events: List[AuditEvent] = []
         self._index_by_id: Dict[str, AuditEvent] = {}
+
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop):
+        """Binds running asyncio event loop for threadsafe async DB commits."""
+        self._loop = loop
+
+    async def _async_log_to_db(self, event: AuditEvent):
+        """Asynchronously persists audit event to PostgreSQL audit_events table."""
+        try:
+            from src.database.connection import AsyncSessionLocal
+            async with AsyncSessionLocal() as session:
+                db_record = AuditEventDB(
+                    event_id=event.event_id,
+                    timestamp=event.timestamp,
+                    workflow_id=event.workflow_id,
+                    workflow_type=event.workflow_type,
+                    transaction_id=event.transaction_id,
+                    correlation_id=event.correlation_id,
+                    actor_type=str(event.actor_type.value if hasattr(event.actor_type, "value") else event.actor_type),
+                    actor_id=event.actor_id,
+                    actor_role=event.actor_role,
+                    event_type=str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type),
+                    grc_domain=str(event.grc_domain.value if hasattr(event.grc_domain, "value") else event.grc_domain) if event.grc_domain else None,
+                    node_name=event.node_name,
+                    action=event.action,
+                    decision=event.decision,
+                    status=event.status,
+                    reason=event.reason,
+                    summary=event.summary,
+                    result=event.result,
+                    risk_level=event.risk_level,
+                    risk_score=event.risk_score,
+                    risk_flags=event.risk_flags,
+                    approval_required=event.approval_required,
+                    approval_status=event.approval_status,
+                    evidence_refs=event.evidence_refs,
+                    metadata_json=event.metadata,
+                    previous_hash=event.previous_hash,
+                    event_hash=event.event_hash,
+                )
+                session.add(db_record)
+                await session.commit()
+        except Exception as e:
+            logger.error(f"Failed to async commit audit record to DB: {e}")
+
+    def _save_to_db(self, event: AuditEvent):
+        """Threadsafe dispatch for database persistence."""
+        loop = self._loop
+        if not loop or not loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(self._async_log_to_db(event), loop)
+        else:
+            try:
+                asyncio.run(self._async_log_to_db(event))
+            except Exception as e:
+                logger.error(f"Failed to log event to DB: {e}")
 
     def log_event(self, event: AuditEvent) -> AuditEvent:
         """
@@ -34,9 +96,15 @@ class AuditRepository:
             if event.summary
             else None
         )
+        redacted_reason = (
+            default_redactor.redact_text(event.reason).redacted_text
+            if event.reason
+            else None
+        )
 
         event.metadata = redacted_meta
         event.summary = redacted_summary
+        event.reason = redacted_reason
 
         # 2. Cryptographic Hash Chaining
         workflow_events = self.get_workflow_events(event.workflow_id)
@@ -52,21 +120,33 @@ class AuditRepository:
         self._in_memory_events.append(event)
         self._index_by_id[event.event_id] = event
 
-        # 4. Save to DB Session if available
+        # 4. Save to DB Session if available, or dispatch async DB commit
         if self.session:
             try:
                 db_record = AuditEventDB(
                     event_id=event.event_id,
                     timestamp=event.timestamp,
                     workflow_id=event.workflow_id,
+                    workflow_type=event.workflow_type,
+                    transaction_id=event.transaction_id,
                     correlation_id=event.correlation_id,
-                    actor_type=str(event.actor_type),
+                    actor_type=str(event.actor_type.value if hasattr(event.actor_type, "value") else event.actor_type),
                     actor_id=event.actor_id,
-                    event_type=str(event.event_type),
+                    actor_role=event.actor_role,
+                    event_type=str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type),
+                    grc_domain=str(event.grc_domain.value if hasattr(event.grc_domain, "value") else event.grc_domain) if event.grc_domain else None,
                     node_name=event.node_name,
+                    action=event.action,
+                    decision=event.decision,
                     status=event.status,
-                    result=event.result,
+                    reason=event.reason,
                     summary=event.summary,
+                    result=event.result,
+                    risk_level=event.risk_level,
+                    risk_score=event.risk_score,
+                    risk_flags=event.risk_flags,
+                    approval_required=event.approval_required,
+                    approval_status=event.approval_status,
                     evidence_refs=event.evidence_refs,
                     metadata_json=event.metadata,
                     previous_hash=event.previous_hash,
@@ -78,6 +158,8 @@ class AuditRepository:
                 logger.error(f"Failed to commit audit record to DB: {e}")
                 if self.session:
                     self.session.rollback()
+        else:
+            self._save_to_db(event)
 
         return event
 
@@ -143,6 +225,14 @@ class AuditRepository:
     def query_reports(
         self,
         event_type: Optional[str] = None,
+        grc_domain: Optional[str] = None,
+        workflow_type: Optional[str] = None,
+        transaction_id: Optional[str] = None,
+        actor_role: Optional[str] = None,
+        decision: Optional[str] = None,
+        risk_level: Optional[str] = None,
+        approval_required: Optional[bool] = None,
+        approval_status: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
     ) -> List[AuditEvent]:
@@ -150,6 +240,22 @@ class AuditRepository:
         events = list(self._in_memory_events)
         if event_type:
             events = [ev for ev in events if str(ev.event_type) == event_type]
+        if grc_domain:
+            events = [ev for ev in events if str(ev.grc_domain) == grc_domain]
+        if workflow_type:
+            events = [ev for ev in events if str(ev.workflow_type) == workflow_type]
+        if transaction_id:
+            events = [ev for ev in events if str(ev.transaction_id) == transaction_id]
+        if actor_role:
+            events = [ev for ev in events if str(ev.actor_role) == actor_role]
+        if decision:
+            events = [ev for ev in events if str(ev.decision) == decision]
+        if risk_level:
+            events = [ev for ev in events if str(ev.risk_level) == risk_level]
+        if approval_required is not None:
+            events = [ev for ev in events if ev.approval_required == approval_required]
+        if approval_status:
+            events = [ev for ev in events if str(ev.approval_status) == approval_status]
         if start_time:
             events = [ev for ev in events if ev.timestamp >= start_time]
         if end_time:
@@ -166,14 +272,26 @@ class AuditRepository:
             event_id=record.event_id,
             timestamp=record.timestamp,
             workflow_id=record.workflow_id,
+            workflow_type=record.workflow_type,
+            transaction_id=record.transaction_id,
             correlation_id=record.correlation_id,
             actor_type=record.actor_type,
             actor_id=record.actor_id,
+            actor_role=record.actor_role,
             event_type=record.event_type,
+            grc_domain=record.grc_domain,
             node_name=record.node_name,
+            action=record.action,
+            decision=record.decision,
             status=record.status,
-            result=record.result,
+            reason=record.reason,
             summary=record.summary,
+            result=record.result,
+            risk_level=record.risk_level,
+            risk_score=record.risk_score,
+            risk_flags=record.risk_flags or [],
+            approval_required=record.approval_required,
+            approval_status=record.approval_status,
             evidence_refs=record.evidence_refs or [],
             metadata=record.metadata_json or {},
             previous_hash=record.previous_hash,
