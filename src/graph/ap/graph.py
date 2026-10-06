@@ -8,6 +8,7 @@ from src.graph.ap.nodes import (
     validate_invoice_node,
     human_review_node,
     generate_discrepancy_notice_node,
+    persist_invoice_node,
 )
 from src.graph.shared.nodes.risk_assessment import risk_assessment_node
 from src.grc.nodes import governance_policy_check_node, maker_checker_review_node
@@ -36,6 +37,13 @@ def route_maker_checker(state: FinanceState) -> str:
         return "approve"
     return "exception"
 
+def route_human_review(state: FinanceState) -> str:
+    """Routes Human Review decision."""
+    decision = state.get("routing_decision")
+    if decision == "APPROVE":
+        return "approve"
+    return "exception"
+
 def route_compliance(state: FinanceState) -> str:
     """Routes to discrepancy HITL if compliance reconciliation fails, otherwise proceeds to governance."""
     is_reconciled = state.get("is_reconciled", True)
@@ -58,6 +66,7 @@ def build_ap_graph():
     builder.add_node("maker_checker", maker_checker_review_node)
     builder.add_node("generate_discrepancy", generate_discrepancy_notice_node)
     builder.add_node("human_review", human_review_node)
+    builder.add_node("persist_invoice", persist_invoice_node)
 
     # Add edges
     builder.add_edge(START, "extract_invoice")
@@ -84,7 +93,7 @@ def build_ap_graph():
         route_governance,
         {
             "maker_checker": "maker_checker",
-            "approve": END,
+            "approve": "persist_invoice",
             "exception": END,
             "generate_discrepancy": "generate_discrepancy",
         },
@@ -94,18 +103,29 @@ def build_ap_graph():
         "maker_checker",
         route_maker_checker,
         {
-            "approve": END,
+            "approve": "persist_invoice",
             "exception": END,
         },
     )
     
     # Path from generate_discrepancy to human_review
     builder.add_edge("generate_discrepancy", "human_review")
-    # Path from human review to END
-    builder.add_edge("human_review", END)
+    
+    # Conditional routing from human_review
+    builder.add_conditional_edges(
+        "human_review",
+        route_human_review,
+        {
+            "approve": "persist_invoice",
+            "exception": END,
+        },
+    )
+
+    builder.add_edge("persist_invoice", END)
 
     memory = MemorySaver()
     return builder.compile(checkpointer=memory, interrupt_before=["human_review", "maker_checker"])
 
 
 ap_graph = build_ap_graph()
+

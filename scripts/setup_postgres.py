@@ -7,7 +7,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.database.connection import engine, Base, AsyncSessionLocal
-from src.database.models import PurchaseOrderDB, GoodsReceiptDB, CustomerInvoiceDB
+from src.database.models import PurchaseOrderDB, GoodsReceiptDB, CustomerInvoiceDB, InvoiceDB
+
 
 async def setup_database():
     print("Connecting to Supabase PostgreSQL...")
@@ -24,10 +25,10 @@ async def setup_database():
             # Seed AP Data
             po_1 = PurchaseOrderDB(
                 po_number="PO-1001",
-                vendor_id="VEND-001",
-                expected_total=1000.0,
+                vendor_id="VEND-135",
+                expected_total=1200.0,
                 line_items=[
-                    {"item_id": "ITEM-A", "description": "Widget A", "quantity": 10.0, "unit_price": 100.0, "total_price": 1000.0}
+                    {"item_id": "ITEM-102", "description": "Ergonomic Office Chair", "quantity": 6.0, "unit_price": 200.0, "total_price": 1200.0}
                 ]
             )
             po_2 = PurchaseOrderDB(
@@ -41,9 +42,9 @@ async def setup_database():
             gr_1 = GoodsReceiptDB(
                 receipt_id="GR-9001",
                 po_number="PO-1001",
-                received_quantity=10.0,
+                received_quantity=6.0,
                 line_items=[
-                    {"item_id": "ITEM-A", "description": "Widget A", "quantity": 10.0, "unit_price": 100.0, "total_price": 1000.0}
+                    {"item_id": "ITEM-102", "description": "Ergonomic Office Chair", "quantity": 6.0, "unit_price": 200.0, "total_price": 1200.0}
                 ]
             )
             gr_2 = GoodsReceiptDB(

@@ -40,6 +40,11 @@ class FinanceState(TypedDict, total=False):
     requires_human_review: Optional[bool]
     sanitized_input: Optional[str]
 
+    # Historical Invoices for Risk Scoring
+    historical_invoices: Optional[List[Dict[str, Any]]]
+    historical_amounts: Optional[List[float]]
+
+
     # Compliance & Reconciliation Persistence
     reconciliation_result: Optional[Dict[str, Any]]
     is_reconciled: Optional[bool]
