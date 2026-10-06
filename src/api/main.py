@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from src.api.routes.ap import router as ap_router
 from src.api.routes.ar import router as ar_router
 from src.api.routes.audit import router as audit_router
+from src.api.routes.documents import router as documents_router
 from src.api.routes.governance import router as governance_router
 from src.api.routes.health import router as health_router
 from src.api.routes.risk import router as risk_router
@@ -29,13 +30,14 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(documents_router)
     app.include_router(ap_router)
     app.include_router(ar_router)
     app.include_router(governance_router)
     app.include_router(risk_router)
     app.include_router(audit_router)
 
-    logger.info(f"Initialized {settings.PROJECT_NAME} v{settings.VERSION} with AP, AR, Governance, Risk, and Audit routes.")
+    logger.info(f"Initialized {settings.PROJECT_NAME} v{settings.VERSION} with Documents, AP, AR, Governance, Risk, and Audit routes.")
 
     return app
 
