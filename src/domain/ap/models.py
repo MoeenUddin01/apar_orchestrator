@@ -20,6 +20,27 @@ class ExtractedInvoice(BaseModel):
     line_items: List[LineItem] = Field(default_factory=list)
 
 
+class DocumentMetadata(BaseModel):
+    """Metadata record generated when a binary document is stored in the Document Storage Abstraction."""
+    document_id: str
+    original_filename: str
+    mime_type: str
+    file_size_bytes: int
+    storage_uri: str
+    checksum_sha256: str
+    uploaded_at: str
+    uploaded_by: Optional[str] = "api_user_01"
+
+
+class ExtractionResult(BaseModel):
+    """Provider extraction output containing raw text, extracted fields, confidence scores, and metadata."""
+    raw_text: str
+    fields: Dict[str, Any] = Field(default_factory=dict)
+    confidence_scores: Dict[str, float] = Field(default_factory=dict)
+    language_detected: str = "en"
+    provider_name: str = "azure_doc_intel"
+
+
 class PurchaseOrder(BaseModel):
     """Purchase Order record retrieved from the database representing expected order financial facts."""
     po_number: str
