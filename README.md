@@ -90,10 +90,28 @@ Repository classes (`ap_repository.py` and `ar_repository.py`) execute non-block
 ---
 
 ## 5. Testing & Validation
-The system maintains a comprehensive, green test suite of **84 automated tests** executing via `pytest` and `pytest-asyncio`. 
+The system maintains a comprehensive, green test suite of **84 automated backend unit/integration tests** (`pytest`) alongside an **automated Playwright-based End-to-End UI QA suite** (`scripts/run_comprehensive_qa.py`) and a **PostgreSQL Cryptographic Hash-Chain Verification tool** (`scripts/verify_db_and_hash_chains.py`).
+
 Crucially, testing infrastructure has been isolated using `poolclass=NullPool` on the async DB engines, preventing `InterfaceError` connection pooling anomalies across async test loops.
 
-**Validated Scenarios (84 Passing Tests):**
+### 5.1 End-to-End Playwright UI QA Suite (`scripts/run_comprehensive_qa.py`)
+Simulates direct human interactions with the Streamlit web dashboard via Playwright browser automation, testing both Accounts Payable (AP) and Accounts Receivable (AR) end-to-end:
+
+* **AP Scenarios (10/10 Passed):** Normal auto-approval (`AP-1`), High-value approval flow (`AP-2`), High-value rejection flow (`AP-3`), 3-way match variance exception (`AP-4`), Historical duplicate invoice detection (`AP-5`), Malformed input extraction (`AP-6`), Unauthorized MAKER approval block (`AP-7`), Security prompt injection defense (`AP-8`), $10,000 boundary rule enforcement (`AP-9`), and Sequential workflow isolation (`AP-10`).
+* **AR Scenarios (10/10 Passed):** Normal remittance matching (`AR-1`), Partial payment handling (`AR-2`), Full payment settlement (`AR-3`), Overdue invoice detection (`AR-4`), Payment mismatch exception (`AR-5`), High-value AR governance (`AR-6`), Malformed remittance handling (`AR-7`), Duplicate payment detection (`AR-8`), Unauthorized MAKER approval block (`AR-9`), and Sequential AR transaction isolation (`AR-10`).
+
+### 5.2 Duplicate Invoice Detection & Database Persistence
+* **InvoiceDB Model (`invoices` table):** Stores processed invoices (`invoice_number`, `vendor_id`, `invoice_total`, `workflow_id`, `status`, `created_at`).
+* **State Hydration:** Prior to `risk_assessment_node`, historical vendor invoices are queried from PostgreSQL and injected into `state["historical_invoices"]`.
+* **Deterministic Detection:** `check_duplicate_invoice()` compares incoming invoice numbers against historical vendor records, assigning elevated risk scores (60.0) and flagging duplicates (`DUPLICATE_INVOICE_NUMBER`) to force HITL review.
+
+### 5.3 PostgreSQL Audit & Cryptographic Hash-Chain Verification (`scripts/verify_db_and_hash_chains.py`)
+Direct SQL inspection verifies runtime GRC guarantees:
+* **116 PostgreSQL Audit Records:** Enriched with actor metadata, GRC domain, decisions, and risk levels across 40 unique workflow instances.
+* **100% Cryptographic Hash-Chain Validity:** Computes `SHA-256(event_id + workflow_id + timestamp + event_type + previous_hash + payload)` for every event to guarantee immutable tamper-evidence.
+* **100% Cross-Workflow Isolation:** Validates strict domain separation between AP (`AP_EXTRACTION`, `3_WAY_MATCH`, `AP_RISK`, `AP_GOVERNANCE`) and AR (`AR_REMITTANCE_MATCH`, `AR_RISK`, `AR_GOVERNANCE`).
+
+### 5.4 Backend Unit & Integration Tests (84 Passing Tests)
 *   **AP Workflows & GRC (`test_ap_workflow.py`, `test_grc_workflow.py`):**
     *   **AP - Perfect Match:** Full 3-way match passes automatically, routing status to `COMPLETED`.
     *   **AP - Price Tolerance Exceeded:** Identifies variance, automatically triggers exception protocols, generates a discrepancy communication via LLM, and halts execution (`REQUIRES_APPROVAL`).
