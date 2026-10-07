@@ -16,7 +16,8 @@ from src.domain.audit_schema import AuditEvent, ActorType, EventType, GRCDomain
 
 def ingest_document_node(state: FinanceState) -> Dict[str, Any]:
     """Node 0: Ingests document from DocumentStorageInterface using document_id if provided."""
-    logger.info("AP Graph [ingest_document]: Ingesting document from storage boundary.")
+    workflow_id = state.get("workflow_id", "UNKNOWN_WF")
+    logger.info(f"AP Graph [ingest_document]: Ingesting document from storage boundary for WF {workflow_id}.")
     doc_id = state.get("document_id")
     raw_doc = state.get("raw_document")
 
@@ -33,15 +34,22 @@ def ingest_document_node(state: FinanceState) -> Dict[str, Any]:
                 "document_metadata": metadata.model_dump() if metadata else None
             }
         else:
+            err_msg = f"Document storage retrieval failed for ID: {doc_id}"
+            default_audit_callback.on_error(
+                workflow_id=workflow_id,
+                node_name="ingest_document",
+                error_msg=err_msg,
+                error_type="STORAGE_FAILURE"
+            )
             return {
                 "status": "ERROR",
-                "validation_errors": [f"Document storage retrieval failed for ID: {doc_id}"]
+                "validation_errors": [err_msg]
             }
 
     return {"status": "PROCESSING"}
 
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
-    """Node 1: Extract structured invoice data from raw document using LLM boundary."""
+    """Node 1: Extract structured invoice data from raw document using LLM boundary with retry strategy."""
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
     logger.info(f"AP Graph [extract_invoice]: Processing workflow {workflow_id}")
     raw_doc = state.get("raw_document") or ""
@@ -51,20 +59,57 @@ def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
         clean_doc, redaction_res = privacy_middleware.process_prompt(raw_doc)
     except Exception as e:
         logger.error(f"Privacy middleware failed: {e}")
+        default_audit_callback.on_error(
+            workflow_id=workflow_id,
+            node_name="extract_invoice",
+            error_msg=str(e),
+            error_type="SECURITY_ERROR"
+        )
         return {
             "status": "ERROR",
             "validation_errors": [f"Privacy Sanitization Failure: {e}"]
         }
         
-    # 3. External LLM / Extraction using Adapter
+    # 2. External LLM / Extraction using Adapter with Exponential Backoff Retry Policy
     from src.llm.extractors.invoice_extractor import LLMInvoiceExtractorAdapter
     import io
-    adapter = LLMInvoiceExtractorAdapter()
-    stream = io.BytesIO(clean_doc.encode('utf-8'))
-    extraction_result = adapter.extract(stream)
-    extracted = adapter.map_to_canonical(extraction_result)
+    import time
 
-    # 2. Audit Privacy Processing
+    adapter = LLMInvoiceExtractorAdapter()
+    max_attempts = 3
+    initial_interval = 0.5
+    backoff_factor = 2.0
+    last_exception = None
+    extraction_result = None
+    extracted = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            stream = io.BytesIO(clean_doc.encode('utf-8'))
+            extraction_result = adapter.extract(stream)
+            extracted = adapter.map_to_canonical(extraction_result)
+            break
+        except Exception as e:
+            last_exception = e
+            logger.warning(f"Extraction attempt {attempt}/{max_attempts} failed for WF {workflow_id}: {e}")
+            if attempt < max_attempts:
+                time.sleep(initial_interval * (backoff_factor ** (attempt - 1)))
+
+    if extracted is None or extraction_result is None:
+        err_msg = f"Extraction failed after {max_attempts} attempts: {last_exception}"
+        logger.error(err_msg)
+        default_audit_callback.on_error(
+            workflow_id=workflow_id,
+            node_name="extract_invoice",
+            error_msg=err_msg,
+            error_type="EXTRACTION_FAILED"
+        )
+        return {
+            "status": "ERROR",
+            "validation_errors": [err_msg]
+        }
+
+    # 3. Audit Privacy Processing
     if redaction_res.pii_detected:
         default_audit_callback.on_privacy_redaction(
             workflow_id=workflow_id,
