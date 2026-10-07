@@ -6,11 +6,13 @@ from src.finance.matching import perform_3_way_match
 from src.graph.state import FinanceState
 from src.llm.extractors.invoice_extractor import extract_invoice_from_raw_document
 from src.finance.routing import evaluate_hitl_rules
+from src.finance.confidence import evaluate_extraction_confidence
 from src.llm.generators.communications import generate_discrepancy_notice_llm
 
 
 from src.llm.middleware import privacy_middleware
 from src.graph.shared.callbacks.audit_logger import default_audit_callback
+from src.domain.audit_schema import AuditEvent, ActorType, EventType, GRCDomain
 
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
     """Node 1: Extract structured invoice data from raw document using LLM boundary."""
@@ -28,8 +30,13 @@ def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
             "validation_errors": [f"Privacy Sanitization Failure: {e}"]
         }
         
-    # 3. External LLM / Extraction
-    extracted = extract_invoice_from_raw_document(clean_doc)
+    # 3. External LLM / Extraction using Adapter
+    from src.llm.extractors.invoice_extractor import LLMInvoiceExtractorAdapter
+    import io
+    adapter = LLMInvoiceExtractorAdapter()
+    stream = io.BytesIO(clean_doc.encode('utf-8'))
+    extraction_result = adapter.extract(stream)
+    extracted = adapter.map_to_canonical(extraction_result)
 
     # 2. Audit Privacy Processing
     if redaction_res.pii_detected:
@@ -44,10 +51,32 @@ def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
     return {
         "status": "PROCESSING",
         "extracted_data": extracted.model_dump(),
+        "extraction_metadata": extraction_result.model_dump(),
         "sanitized_input": clean_doc if redaction_res.pii_detected else None,
         "redaction_result": redaction_res.model_dump()
     }
 
+
+def evaluate_confidence_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 1.5: Evaluate extraction confidence to determine if HITL is needed before validation."""
+    logger.info(f"AP Graph [evaluate_confidence]: Evaluating extraction confidence.")
+    metadata = state.get("extraction_metadata") or {}
+    data = state.get("extracted_data") or {}
+    
+    evaluation = evaluate_extraction_confidence(metadata, data)
+    
+    if evaluation.get("passes_confidence"):
+        return {"routing_decision": "APPROVE"}
+    else:
+        # Save reasons for the human reviewer
+        hitl_decision = state.get("hitl_decision") or {}
+        hitl_decision["hitl_reasons"] = evaluation.get("reasons", [])
+        hitl_decision["requires_hitl"] = True
+        return {
+            "routing_decision": "HITL",
+            "hitl_decision": hitl_decision,
+            "status": "REQUIRES_APPROVAL"
+        }
 
 def validate_invoice_node(state: FinanceState) -> Dict[str, Any]:
     """Node 2: Validate extracted data contains required financial fields using Python rules."""
@@ -142,6 +171,39 @@ def human_review_node(state: FinanceState) -> Dict[str, Any]:
     logger.info(f"AP Graph [human_review]: Applying human decision from API.")
     hitl_input = state.get("hitl_input") or {}
     action = hitl_input.get("action", "REJECT")
+    
+    if action == "CORRECT_DATA":
+        corrected_data = hitl_input.get("corrected_data", {})
+        actor_id = hitl_input.get("corrected_by", "UNKNOWN_USER")
+        
+        # Merge corrected_data into extracted_data
+        current_data = state.get("extracted_data") or {}
+        merged_data = {**current_data, **corrected_data}
+        
+        # Emit Audit Event
+        event = AuditEvent(
+            workflow_id=state.get("workflow_id", "UNKNOWN_WF"),
+            workflow_type="AP",
+            actor_type=ActorType.USER,
+            actor_id=actor_id,
+            actor_role="OPERATOR",
+            event_type=EventType.WORKFLOW_COMPLETED, # Use generic or map to HUMAN_CORRECTION_APPLIED
+            grc_domain=GRCDomain.WORKFLOW,
+            action="CORRECT_DATA",
+            status="SUCCESS",
+            summary=f"Human operator corrected {len(corrected_data)} fields.",
+            metadata={"corrected_fields": list(corrected_data.keys()), "reason": hitl_input.get("correction_reason")}
+        )
+        # Hack to change event_type since HUMAN_CORRECTION_APPLIED might not be in EventType enum
+        event.event_type = "HUMAN_CORRECTION_APPLIED" # type: ignore
+        default_audit_callback.repository.log_event(event)
+        
+        return {
+            "extracted_data": merged_data,
+            "status": "PROCESSING",
+            "routing_decision": "CORRECTED", # We will route back to validate_invoice
+            "hitl_decision": {"requires_hitl": False} # Clear HITL status
+        }
     
     return {
         "routing_decision": "APPROVE" if action == "APPROVE" else "EXCEPTION",
