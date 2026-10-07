@@ -13,10 +13,10 @@ The AP/AR Orchestrator has been successfully implemented as an asynchronous, gra
 
 **Final Directory Structure Summary:**
 The architecture strictly enforces separation of concerns:
-*   [`src/api/`](file:///home/moeen/projects/apar_orchestrator/src/api/) - FastAPI routing and endpoints (AP, AR, Governance, and `risk.py` endpoints, with `risk_apis.py` for external vendor screening).
+*   [`src/api/`](file:///home/moeen/projects/apar_orchestrator/src/api/) - FastAPI routing and endpoints (AP, AR, Governance, Risk, and `documents.py` for document storage ingestion).
 *   [`src/core/`](file:///home/moeen/projects/apar_orchestrator/src/core/) - Application config, centralized logging, and [`src/core/security/sanitization.py`](file:///home/moeen/projects/apar_orchestrator/src/core/security/sanitization.py) for prompt injection defense & input sanitization.
 *   [`src/database/`](file:///home/moeen/projects/apar_orchestrator/src/database/) - SQLAlchemy models, async connections, and repository patterns.
-*   [`src/domain/`](file:///home/moeen/projects/apar_orchestrator/src/domain/) - Pure Pydantic schemas representing core financial entities and `risk_state.py` for risk tracking.
+*   [`src/domain/`](file:///home/moeen/projects/apar_orchestrator/src/domain/) - Pure Pydantic schemas representing core financial entities, `risk_state.py`, and [`src/domain/ap/storage.py`](file:///home/moeen/projects/apar_orchestrator/src/domain/ap/storage.py) (`DocumentStorageInterface` & `LocalStorageProvider`).
 *   [`src/finance/`](file:///home/moeen/projects/apar_orchestrator/src/finance/) - **Deterministic boundary**: contains pure Python math for 3-way matching, aging, HITL routing policies, and `risk_scoring.py` for fraud detection, duplicate invoice checking, and transaction anomaly scoring.
 *   [`src/graph/`](file:///home/moeen/projects/apar_orchestrator/src/graph/) - LangGraph state machine definitions, nodes, and [`src/graph/shared/nodes/risk_assessment.py`](file:///home/moeen/projects/apar_orchestrator/src/graph/shared/nodes/risk_assessment.py) for shared risk evaluation.
 *   [`src/grc/`](file:///home/moeen/projects/apar_orchestrator/src/grc/) - **Governance, Risk & Compliance layer**: Role-Based Access Control (RBAC), deterministic policy rules engine, and Maker-Checker graph nodes.
@@ -74,6 +74,9 @@ To prevent the LLM from hallucinating financial figures or autonomously authoriz
 ## 4. Database & API Integration
 **FastAPI Endpoints:**
 The service exposes the following domain-driven endpoints:
+*   `POST /api/v1/documents/upload` — Ingests PDF, JPEG, PNG, and TIFF invoice files into Document Storage Abstraction, returning `DocumentMetadata` with UUID `document_id`.
+*   `GET /api/v1/documents/{document_id}` — Retrieves document metadata record.
+*   `GET /api/v1/documents/{document_id}/download` — Streams raw document binary content.
 *   `POST /ap/process-invoice` — Ingests a new vendor invoice and initiates the LangGraph execution.
 *   `GET /ap/{workflow_id}/state` — Retrieves the current state of a paused AP execution.
 *   `POST /ap/{workflow_id}/resume` — Injects executive approval (APPROVE/REJECT) to a paused AP execution.
@@ -1223,6 +1226,7 @@ Planned implementation order:
 [x] Implement Immutable Audit Trails
 [x] Hardened AP GRC Workflow & Checkpoint Resume
 [x] Wire GRC Architecture into Accounts Receivable (AR) Workflow
+[x] Implement Invoice Intelligence Phase 1–3 (Document Storage Abstraction & Document Upload API)
 ```
 
 The project should not be considered production-ready until security, reliability, observability, database migration strategy, testing, and deployment requirements have been properly addressed.
