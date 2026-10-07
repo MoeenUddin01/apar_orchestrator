@@ -15,6 +15,7 @@ class PermissionDeniedError(OrchestratorError):
 class Permission:
     INITIATE_WORKFLOW = "workflow:initiate"
     READ_WORKFLOW = "workflow:read"
+    READ_DOCUMENT = "document:read"
     APPROVE_MAKER_CHECKER = "governance:approve"
     REJECT_MAKER_CHECKER = "governance:reject"
     VIEW_AUDIT_LOGS = "audit:read"
@@ -25,6 +26,7 @@ ROLE_PERMISSIONS: dict[UserRole, Set[str]] = {
     UserRole.ADMIN: {
         Permission.INITIATE_WORKFLOW,
         Permission.READ_WORKFLOW,
+        Permission.READ_DOCUMENT,
         Permission.APPROVE_MAKER_CHECKER,
         Permission.REJECT_MAKER_CHECKER,
         Permission.VIEW_AUDIT_LOGS,
@@ -33,14 +35,17 @@ ROLE_PERMISSIONS: dict[UserRole, Set[str]] = {
     UserRole.MAKER: {
         Permission.INITIATE_WORKFLOW,
         Permission.READ_WORKFLOW,
+        Permission.READ_DOCUMENT,
     },
     UserRole.CHECKER: {
         Permission.READ_WORKFLOW,
+        Permission.READ_DOCUMENT,
         Permission.APPROVE_MAKER_CHECKER,
         Permission.REJECT_MAKER_CHECKER,
     },
     UserRole.AUDITOR: {
         Permission.READ_WORKFLOW,
+        Permission.READ_DOCUMENT,
         Permission.VIEW_AUDIT_LOGS,
     },
 }
