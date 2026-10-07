@@ -2,6 +2,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from src.graph.ap.nodes import (
     extract_invoice_node,
+    evaluate_confidence_node,
     lookup_db_node,
     match_3_way_node,
     route_ap_decision,
@@ -37,9 +38,18 @@ def route_maker_checker(state: FinanceState) -> str:
         return "approve"
     return "exception"
 
+def route_confidence(state: FinanceState) -> str:
+    """Routes based on confidence evaluation: validate if high confidence, human review if low."""
+    decision = state.get("routing_decision")
+    if decision == "HITL":
+        return "human_review"
+    return "validate_invoice"
+
 def route_human_review(state: FinanceState) -> str:
     """Routes Human Review decision."""
     decision = state.get("routing_decision")
+    if decision == "CORRECTED":
+        return "validate_invoice"
     if decision == "APPROVE":
         return "approve"
     return "exception"
@@ -57,6 +67,7 @@ def build_ap_graph():
 
     # Add nodes
     builder.add_node("extract_invoice", extract_invoice_node)
+    builder.add_node("evaluate_confidence", evaluate_confidence_node)
     builder.add_node("validate_invoice", validate_invoice_node)
     builder.add_node("lookup_db", lookup_db_node)
     builder.add_node("match_3_way", match_3_way_node)
@@ -70,7 +81,17 @@ def build_ap_graph():
 
     # Add edges
     builder.add_edge(START, "extract_invoice")
-    builder.add_edge("extract_invoice", "validate_invoice")
+    builder.add_edge("extract_invoice", "evaluate_confidence")
+    
+    builder.add_conditional_edges(
+        "evaluate_confidence",
+        route_confidence,
+        {
+            "validate_invoice": "validate_invoice",
+            "human_review": "human_review",
+        }
+    )
+    
     builder.add_edge("validate_invoice", "lookup_db")
     builder.add_edge("lookup_db", "match_3_way")
     
@@ -116,6 +137,7 @@ def build_ap_graph():
         "human_review",
         route_human_review,
         {
+            "validate_invoice": "validate_invoice",
             "approve": "persist_invoice",
             "exception": END,
         },
