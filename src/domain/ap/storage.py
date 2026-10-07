@@ -91,11 +91,15 @@ class LocalStorageProvider(DocumentStorageInterface):
         logger.info(f"Stored document {document_id} ({filename}, {len(file_bytes)} bytes) at {file_path}")
         return metadata
 
-    def get_document_stream(self, document_id: str) -> Optional[bytes]:
+    def get_document_stream(self, document_id: str, caller_role: Optional[Any] = None) -> Optional[bytes]:
         meta = self.get_document_metadata(document_id)
         if not meta:
             logger.warning(f"Document {document_id} metadata not found.")
             return None
+
+        if caller_role is not None:
+            from src.grc.rbac import enforce_permission, Permission
+            enforce_permission(caller_role, Permission.READ_DOCUMENT)
 
         file_path = self.base_dir / f"{document_id}_{meta.original_filename}"
         if not file_path.exists():
