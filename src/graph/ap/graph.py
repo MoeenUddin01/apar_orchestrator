@@ -1,6 +1,7 @@
 from langgraph.graph import END, START, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from src.graph.ap.nodes import (
+    ingest_document_node,
     extract_invoice_node,
     evaluate_confidence_node,
     lookup_db_node,
@@ -66,6 +67,7 @@ def build_ap_graph():
     builder = StateGraph(FinanceState)
 
     # Add nodes
+    builder.add_node("ingest_document", ingest_document_node)
     builder.add_node("extract_invoice", extract_invoice_node)
     builder.add_node("evaluate_confidence", evaluate_confidence_node)
     builder.add_node("validate_invoice", validate_invoice_node)
@@ -80,7 +82,8 @@ def build_ap_graph():
     builder.add_node("persist_invoice", persist_invoice_node)
 
     # Add edges
-    builder.add_edge(START, "extract_invoice")
+    builder.add_edge(START, "ingest_document")
+    builder.add_edge("ingest_document", "extract_invoice")
     builder.add_edge("extract_invoice", "evaluate_confidence")
     
     builder.add_conditional_edges(
