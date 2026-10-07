@@ -14,6 +14,32 @@ from src.llm.middleware import privacy_middleware
 from src.graph.shared.callbacks.audit_logger import default_audit_callback
 from src.domain.audit_schema import AuditEvent, ActorType, EventType, GRCDomain
 
+def ingest_document_node(state: FinanceState) -> Dict[str, Any]:
+    """Node 0: Ingests document from DocumentStorageInterface using document_id if provided."""
+    logger.info("AP Graph [ingest_document]: Ingesting document from storage boundary.")
+    doc_id = state.get("document_id")
+    raw_doc = state.get("raw_document")
+
+    if doc_id and not raw_doc:
+        from src.domain.ap.storage import default_storage_provider
+        content_bytes = default_storage_provider.get_document_stream(doc_id)
+        metadata = default_storage_provider.get_document_metadata(doc_id)
+
+        if content_bytes:
+            raw_doc = content_bytes.decode("utf-8", errors="ignore")
+            return {
+                "raw_document": raw_doc,
+                "status": "PROCESSING",
+                "document_metadata": metadata.model_dump() if metadata else None
+            }
+        else:
+            return {
+                "status": "ERROR",
+                "validation_errors": [f"Document storage retrieval failed for ID: {doc_id}"]
+            }
+
+    return {"status": "PROCESSING"}
+
 def extract_invoice_node(state: FinanceState) -> Dict[str, Any]:
     """Node 1: Extract structured invoice data from raw document using LLM boundary."""
     workflow_id = state.get("workflow_id", "UNKNOWN_WF")
