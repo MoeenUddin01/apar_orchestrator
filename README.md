@@ -123,6 +123,9 @@ The Invoice Intelligence module handles unstructured document ingestion precedin
 2. **REST Upload API:** `POST /api/v1/documents/upload` safely ingests files with strict MIME type and size validation.
 3. **Pre-Validation Multilingual Normalization:** Converts Arabic-Indic digits (`١٢٣` $\rightarrow$ `123`), localized decimal marks, and localized dates into ASCII primitives **before** downstream financial validation.
 4. **Canonical Data Contract:** Enforces strict Pydantic compatibility (`ExtractedInvoice`) ensuring non-breaking integration with legacy deterministic nodes.
+5. **Confidence Scoring & Cyclic HITL:** Evaluates extraction confidence and automatically routes low-confidence fields to a human-in-the-loop review node. Corrected data is seamlessly reintegrated.
+6. **Error Handling & Audit Logging:** Implements exponential backoff for OCR transient errors and logs structured audit events for failed extractions and ingestions.
+7. **Secure Document Access:** Protects document retrieval streams via RBAC (`READ_DOCUMENT` permission).
 
 ---
 
@@ -218,7 +221,7 @@ uv run pytest -v
 
 ## ✅ 9. Current Project Status
 
-The project is currently **fully implemented** up to Phase 6 (Evaluation & Hardening) and has successfully integrated the Enterprise GRC Layer and Invoice Intelligence Foundation.
+The project is currently **fully implemented** up to Phase 6 (Evaluation & Hardening) and has successfully integrated the Enterprise GRC Layer and the complete Invoice Intelligence module.
 
 - [x] Finalize architecture & database schema
 - [x] Implement AP MVP & AR MVP
@@ -231,5 +234,11 @@ The project is currently **fully implemented** up to Phase 6 (Evaluation & Harde
 - [x] Hardened AP GRC Workflow & Checkpoint Resume
 - [x] Wire GRC Architecture into Accounts Receivable (AR) Workflow
 - [x] Implement Invoice Intelligence Phase 1–3 (Document Storage Abstraction & Document Upload API)
+- [x] Implement Invoice Intelligence Phase 4 (Canonical Data Contract & Pre-Validation)
+- [x] Implement Invoice Intelligence Phase 5 (Confidence Scoring & Cyclic HITL)
+- [x] Implement Invoice Intelligence Phase 6 (AP Workflow Integration)
+- [x] Implement Invoice Intelligence Phase 7 (Error Handling & Retry Logic)
+- [x] Implement Invoice Intelligence Phase 8 (Secure Document Access & RBAC)
+- [x] Implement Invoice Intelligence Phase 9 (End-to-End Testing)
 
 *Future extensions (e.g., Azure Document Intelligence OCR integration, ERP bindings, and actual payment execution) are intentionally outside the initial scope.*
